@@ -12,7 +12,6 @@ import logging
 app = Flask(__name__)
 CORS(app)
 
-# --- Załaduj OpenAPI z pliku YAML ---
 swagger = Swagger(app, template_file="swaggerapi.yaml")
 
 logging.basicConfig(
@@ -20,7 +19,6 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
 
-# -------------------- Funkcje pomocnicze --------------------
 def load_ksef_public_key_from_string(cert_str: str):
     cert_str = cert_str.strip()
     try:
@@ -47,7 +45,6 @@ def encrypt_rsa_oaep(public_key, data: bytes) -> bytes:
     )
 
 
-# -------------------- Endpointy --------------------
 @app.route("/encrypt", methods=["POST"])
 def encrypt_endpoint():
     try:
@@ -92,7 +89,6 @@ def index():
     })
 
 
-# -------------------- Uruchomienie --------------------
 if __name__ == "__main__":
     port = int(os.getenv("PORT", 5000))
     app.run(host="0.0.0.0", port=port, debug=True)
