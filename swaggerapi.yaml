@@ -28,7 +28,7 @@ paths:
                 description: Dane zakodowane Base64 (np. klucz AES)
               cert_b64:
                 type: string
-                example: "-----BEGIN CERTIFICATE-----\\nMIIBIjANBgkq...\\n-----END CERTIFICATE-----"
+                example: "MIIBIjANBgkq..."
                 description: Certyfikat RSA PEM/Base64 DER
               return_b64:
                 type: boolean
