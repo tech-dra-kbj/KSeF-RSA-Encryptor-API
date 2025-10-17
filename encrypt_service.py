@@ -12,6 +12,7 @@ import logging
 app = Flask(__name__)
 CORS(app)
 app.config["JSONIFY_PRETTYPRINT_REGULAR"] = False
+app.config["JSON_SORT_KEYS"] = False
 
 swagger = Swagger(app, template_file="swaggerapi.yaml")
 
