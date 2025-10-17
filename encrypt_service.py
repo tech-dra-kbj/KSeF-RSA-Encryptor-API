@@ -11,6 +11,7 @@ import logging
 
 app = Flask(__name__)
 CORS(app)
+app.config["JSONIFY_PRETTYPRINT_REGULAR"] = False
 
 swagger = Swagger(app, template_file="swaggerapi.yaml")
 
@@ -67,7 +68,7 @@ def encrypt_endpoint():
             return jsonify({"status": "error", "code": 103, "message": str(e)}), 400
 
         encrypted = encrypt_rsa_oaep(public_key, data)
-        encrypted_b64 = base64.b64encode(encrypted).decode("utf-8")
+        encrypted_b64 = base64.b64encode(encrypted).decode("ascii")
 
         return jsonify({"status": "ok", "encrypted_b64": encrypted_b64})
 
