@@ -93,7 +93,7 @@ def health():
 @app.route("/", methods=["GET"])
 def index():
     body = {
-        "service": "KSeF RSA Encryptor",
+        "service": "KSeF RSA Encryptor 1.0.3",
         "docs": "/apidocs",
         "health": "/health"
     }
