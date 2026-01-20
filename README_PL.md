@@ -1,117 +1,204 @@
 # 🔐 KSeF RSA Encryptor API
 
-REST API do szyfrowania danych (np. kluczy AES lub tokenów) zgodnie z wymogami **KSeF**  
-z użyciem algorytmu **RSAES-OAEP (MGF1 + SHA-256)**.
+REST API do operacji kryptograficznych wykorzystywanych w integracji z **KSeF**, w szczególności:
+- szyfrowanie danych **RSAES-OAEP (MGF1 + SHA-256)**,
+- podpisywanie linku weryfikacyjnego **KOD II** (offline) algorytmami **RSA-PSS** lub **ECDSA P-256**,
+- podpis XML w formacie **XAdES (enveloped)** dla żądań uwierzytelniania.
 
-Serwis oparty o **Flask + Gunicorn**, z dokumentacją w **Swagger UI**  
-i pełną obsługą **CORS** (możliwość testowania bezpośrednio w przeglądarce).
-
-
-- [Funkcje](#funkcje)
-- [Struktura projektu](#-struktura-projektu)
-- [Wymagania](#wymagania)
-- [Uruchomienie lokalne](#uruchomienie-lokalne)
-- [Przykładowe użycie API](#przykładowe-użycie-api)
-- [Uruchomienie jako serwis w Linux (systemd)](#uruchomienie-jako-serwis-w-linux-systemd)
-- [Uruchomienie jako serwis w Linux (systemd) — wariant z Gunicorn](#uruchomienie-jako-serwis-w-linux-systemd--wariant-z-gunicorn)
-- [Uruchomienie w Dockerze](#-uruchomienie-w-dockerze)
-- [Health-check (dla K8s / monitoringów)](#health-check-dla-k8s--monitoringów)
-- [Definicja OpenAPI](#definicja-openapi)
-- [Testy manualne](#testy-manualne)
-- [Zależności](#zależności)
-
+Serwis jest zbudowany w oparciu o **Flask + Gunicorn**, udostępnia dokumentację przez **Swagger UI** oraz ma włączony **CORS** (ułatwia testy z przeglądarki).
 
 ---
 
-## Funkcje
-
--  Szyfrowanie danych RSAES-OAEP (MGF1 + SHA-256)
--  Dokumentacja OpenAPI (Swagger UI)
--  Health-check endpoint (`/health`)
--  Uruchamianie jako kontener Docker (z Gunicornem)
--  Obsługa CORS – działa w Swagger UI i frontendach JS
--  Definicja API w zewnętrznym pliku `openapi.yaml`
+- [Features](#features)
+- [Project Structure](#project-structure)
+- [Requirements](#requirements)
+- [Local Run](#local-run)
+- [API Overview](#api-overview)
+  - [`/encrypt`](#encrypt)
+  - [`/sign_link`](#sign_link)
+  - [`/sign_xml`](#sign_xml)
+  - [`/health`](#health)
+- [Manual Tests (curl)](#manual-tests-curl)
+  - [Base64 helpers (Linux/macOS)](#base64-helpers-linuxmacos)
+  - [Test `/sign_link` (ECDSA)](#test-sign_link-ecdsa)
+  - [Test `/sign_xml` (XAdES)](#test-sign_xml-xades)
+  - [Save signed XML to file](#save-signed-xml-to-file)
+- [Security Notes](#security-notes)
+- [OpenAPI / Swagger](#openapi--swagger)
+- [Changelog](#changelog)
+- [Dependencies](#dependencies)
+- [Author](#author)
+- [License](#license)
 
 ---
 
-##  Struktura projektu
+## Features
+
+- **/encrypt** – RSAES-OAEP (MGF1 + SHA-256)
+- **/sign_link** – podpis linku KOD II (offline):  
+  - `rsa_pss` (RSASSA-PSS, SHA-256, MGF1(SHA-256), salt=32)  
+  - `ecdsa_p256` (ECDSA P-256 / SHA-256), format podpisu: `p1363` lub `der`
+- **/sign_xml** – podpis XML w formacie **XAdES (enveloped)**:  
+  - `rsa_sha256` lub `ecdsa_sha256` (dla EC wymuszane P-256)
+- Swagger UI (`/apidocs`)
+- Health-check (`/health`)
+- Docker-ready + Gunicorn
+- CORS enabled
+
+---
+
+## Project Structure
 
 ```
 .
-├── encrypt_service.py      # Główny kod aplikacji Flask
-├── openapi.yaml            # Definicja API (OpenAPI / Swagger)
-├── requirements.txt        # Zależności Pythona
-└── Dockerfile              # Definicja kontenera (Python 3.10 + Gunicorn)
+├── encrypt_service.py      # Main Flask app (endpointy: /encrypt, /sign_link, /sign_xml)
+├── swaggerapi.yaml         # Swagger / OpenAPI definition (Flasgger template)
+├── requirements.txt        # Python dependencies
+└── Dockerfile              # Docker container definition (Python + Gunicorn)
 ```
 
 ---
 
-## Wymagania
+## Requirements
 
-- Python **3.10+**
-- Pip / venv
+- Python **3.10+** (rekomendowane)
+- pip / venv
 - Docker (opcjonalnie)
+
+> Uwaga: endpointy podpisu XML wymagają bibliotek XML/XAdES (`lxml`, `signxml`). Jeżeli w requirements ich nie masz — dodaj je jawnie (szczegóły w sekcji [Dependencies](#dependencies)).
 
 ---
 
-## Uruchomienie lokalne
+## Local Run
 
-### Klonowanie repozytorium
+### Clone repository
 ```bash
 git clone https://github.com/zvgelo/KSeF-RSA-Encryptor-API.git
 cd KSeF-RSA-Encryptor-API
 ```
 
-### Instalacja zależności
+### Install dependencies
 ```bash
-python -m venv venv
-source venv/bin/activate  # Linux / macOS
-venv\Scripts\activate     # Windows
+python -m venv .venv
+source .venv/bin/activate  # Linux/macOS
+# .venv\Scripts\activate   # Windows
 
 pip install -r requirements.txt
 ```
 
-### Uruchomienie serwisu
+### Run the service
 ```bash
 python encrypt_service.py
 ```
 
-Serwis będzie działał pod adresem:
-[http://localhost:5000](http://localhost:5000)
-
-Swagger UI dostępny pod:
-[http://localhost:5000/apidocs](http://localhost:5000/apidocs)
+Service:
+- http://localhost:5000  
+Swagger UI:
+- http://localhost:5000/apidocs
 
 ---
 
-## Przykładowe użycie API
+## API Overview
 
-### Endpoint `/encrypt`
+Definicja endpointów i schematów jest w `swaggerapi.yaml` i jest ładowana przez Flasgger.
 
-**POST** `http://localhost:5000/encrypt`
+### <a id="encrypt"></a>`/encrypt`
 
-#### Przykład żądania:
+**POST** `/encrypt`
+
+Szyfruje `data_b64` kluczem publicznym z certyfikatu `cert_b64` (PEM/DER w Base64).
+
+**Request JSON:**
 ```json
 {
   "data_b64": "ZGFuZV9pbnB1dA==",
-  "cert_b64": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A...",
+  "cert_b64": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t...",
   "return_b64": true
 }
 ```
 
-#### Przykład odpowiedzi:
+**Response JSON:**
 ```json
 {
   "status": "ok",
-  "encrypted_b64": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A..."
+  "encrypted_b64": "..."
 }
 ```
 
-### Endpoint `/health`
+---
 
-**GET** `http://localhost:5000/health`
+### <a id="sign_link"></a>`/sign_link`
 
-#### Odpowiedź:
+**POST** `/sign_link`
+
+Podpisuje link weryfikacyjny KOD II (offline).
+
+- Wejściowy link może być:
+  - pełnym URL `https://...` lub
+  - bez schematu `qr-demo.ksef.mf.gov.pl/...`
+- Podpisywany jest ciąg: `host/path` **bez** `https://` i **bez** końcowego `/`.
+- Certyfikat jest wykorzystywany do walidacji dopasowania do klucza prywatnego (public key match).
+- Hasło do klucza przekazuj jako **Base64** w polu `key_password_b64`.
+
+**Request JSON (ECDSA P-256, format P1363):**
+```json
+{
+  "link_b64": "cXItZGVtby5rc2VmLm1mLmdvdi5wbC9jZXJ0aWZpY2F0ZS9OaXAvLi4u",
+  "cert_pem_b64": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t...",
+  "key_pem_b64": "LS0tLS1CRUdJTiBFTkNSWVBURUQgUFJJVkFURSBLRVktLS0tLQ==",
+  "key_password_b64": "emFxMUBXU1hjZGUzJFJGVg==",
+  "alg": "ecdsa_p256",
+  "ecdsa_format": "p1363"
+}
+```
+
+**Response JSON:**
+```json
+{
+  "link_b64": "aHR0cHM6Ly9xci1kZW1vLmtzZWYubWYuZ292LnBsL2NlcnRpZmljYXRlL...==",
+  "alg_used": "ecdsa_p256",
+  "ecdsa_format_used": "p1363"
+}
+```
+
+---
+
+### <a id="sign_xml"></a>`/sign_xml`
+
+**POST** `/sign_xml`
+
+Podpisuje XML w formacie **XAdES (enveloped)**. Wejścia/wyjścia są w Base64.
+
+- `alg`:
+  - `rsa_sha256` – gdy klucz prywatny RSA
+  - `ecdsa_sha256` – gdy klucz prywatny EC (wymuszane P-256)
+
+**Request JSON:**
+```json
+{
+  "xml_b64": "PEF1dGhUb2tlblJlcXVlc3Q+Li4uPC9BdXRoVG9rZW5SZXF1ZXN0Pg==",
+  "cert_pem_b64": "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t...",
+  "key_pem_b64": "LS0tLS1CRUdJTiBFTkNSWVBURUQgUFJJVkFURSBLRVktLS0tLQ==",
+  "key_password_b64": "emFxMUBXU1hjZGUzJFJGVg==",
+  "alg": "ecdsa_sha256"
+}
+```
+
+**Response JSON:**
+```json
+{
+  "signed_xml_b64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4K...",
+  "alg_used": "ecdsa_sha256"
+}
+```
+
+---
+
+### <a id="health"></a>`/health`
+
+**GET** `/health`
+
+**Response JSON:**
 ```json
 {
   "status": "ok",
@@ -121,305 +208,192 @@ Swagger UI dostępny pod:
 
 ---
 
-## Uruchomienie jako serwis w Linux (systemd)
+## Manual Tests (curl)
 
-Poniższy przykład pokazuje, jak uruchomić aplikację **KSeF RSA Encryptor API** jako usługę systemową (`systemd`) w systemie Linux.  
-Usługa będzie automatycznie uruchamiana po restarcie systemu i logować dane do `/var/log`.
+### Base64 helpers (Linux/macOS)
 
----
-
-### Utwórz plik jednostki systemowej
-
-Utwórz plik:
+**Linux:**
 ```bash
-sudo nano /etc/systemd/system/ksef-encryptor.service
+b64_file() { base64 -w0 "$1"; }
 ```
 
-Wklej poniższą konfigurację (dostosuj ścieżki i użytkownika):
-
-```ini
-[Unit]
-Description=KSeF RSA Encryptor Flask Service
-After=network.target
-
-[Service]
-User=ubuntu
-Group=ubuntu
-WorkingDirectory=/home/ubuntu/KSeF-RSA-Encryptor-API
-Environment="PORT=5000"
-ExecStart=/home/ubuntu/KSeF-RSA-Encryptor-API/.venv/bin/python3 /home/ubuntu/KSeF-RSA-Encryptor-API/encrypt_service.py
-Restart=always
-StandardOutput=append:/var/log/encrypt_service.log
-StandardError=append:/var/log/encrypt_service.err
-
-[Install]
-WantedBy=multi-user.target
+**macOS:**
+```bash
+b64_file() { base64 < "$1" | tr -d '\n'; }
 ```
 
-**Ważne parametry:**
-- `WorkingDirectory` — ścieżka do katalogu projektu  
-- `ExecStart` — ścieżka do interpretera Pythona z wirtualnego środowiska  
-- `Environment="PORT=5000"` — tutaj możesz zmienić port, na którym działa aplikacja  
-  (np. `Environment="PORT=8080"`)  
+Dla haseł:
+```bash
+b64_str() { printf '%s' "$1" | base64 | tr -d '\n'; }
+```
 
 ---
 
-### Zastosowanie zmian i uruchomienie usługi
+### Test `/sign_link` (ECDSA)
+
+Przykładowy link (bez `https://` też działa):
+```
+qr-demo.ksef.mf.gov.pl/certificate/Nip/8111693370/8111693370/013C34D4C9B7E276/EcbwwuZ5hE_7BLZ4dse-jJK0wlLMNWl5IVTuXtCrHNk
+```
+
+Zakładamy pliki:
+- cert: `cert-offline-demo-811.crt`
+- key:  `cert-offline-demo-811.key`
+- pass: `zaq1@WSXcde3$RFV`
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl enable ksef-encryptor.service
-sudo systemctl start ksef-encryptor.service
-```
+LINK='qr-demo.ksef.mf.gov.pl/certificate/Nip/8111693370/8111693370/013C34D4C9B7E276/EcbwwuZ5hE_7BLZ4dse-jJK0wlLMNWl5IVTuXtCrHNk'
 
----
+LINK_B64="$(printf '%s' "$LINK" | base64 | tr -d '\n')"
+CERT_B64="$(base64 < cert-offline-demo-811.crt | tr -d '\n')"
+KEY_B64="$(base64 < cert-offline-demo-811.key | tr -d '\n')"
+PASS_B64="$(printf '%s' 'zaq1@WSXcde3$RFV' | base64 | tr -d '\n')"
 
-### Sprawdzenie statusu serwisu
-
-```bash
-sudo systemctl status ksef-encryptor.service
-```
-
-Przykładowy wynik:
-```
-● ksef-encryptor.service - KSeF RSA Encryptor Flask Service
-   Loaded: loaded (/etc/systemd/system/ksef-encryptor.service; enabled)
-   Active: active (running) since Fri 2025-10-17 09:41:13 CEST; 10s ago
- Main PID: 21345 (python3)
-    Tasks: 1 (limit: 4915)
-   Memory: 52.3M
-   CGroup: /system.slice/ksef-encryptor.service
-           └─21345 /home/ubuntu/KSeF-RSA-Encryptor-API/.venv/bin/python3 /home/ubuntu/KSeF-RSA-Encryptor-API/encrypt_service.py
-```
-
----
-
-### Logi aplikacji
-
-```bash
-sudo tail -f /var/log/encrypt_service.log
-sudo tail -f /var/log/encrypt_service.err
-```
-
----
-
-### Restart / zatrzymanie usługi
-
-```bash
-sudo systemctl restart ksef-encryptor.service
-sudo systemctl stop ksef-encryptor.service
-```
-
----
-
-### Po starcie systemu
-
-Usługa uruchomi się automatycznie i będzie dostępna pod adresem:
-```
-http://localhost:<PORT>
-```
-
-Przykład:
-```
-http://localhost:5000
-```
-
----
-
-## Uruchomienie jako serwis w Linux (systemd) — wariant z Gunicorn
-
-Wersja z **wieloma workerami i wątkami**, zalecana do środowisk produkcyjnych.  
-Gunicorn automatycznie zarządza procesami workerów i zapewnia większą stabilność niż natywny serwer Flask.
-
----
-
-### Utwórz plik jednostki systemowej
-
-Utwórz plik:
-```bash
-sudo nano /etc/systemd/system/ksef-encryptor.service
-```
-
-Wklej poniższą konfigurację (dostosuj ścieżki i użytkownika):
-
-```ini
-[Unit]
-Description=KSeF RSA Encryptor Gunicorn Service
-After=network.target
-
-[Service]
-User=ubuntu
-Group=ubuntu
-WorkingDirectory=/home/ubuntu/KSeF-RSA-Encryptor-API
-Environment="PORT=5000"
-Environment="WORKERS=3"
-Environment="THREADS=2"
-ExecStart=/home/ubuntu/KSeF-RSA-Encryptor-API/.venv/bin/gunicorn --workers ${WORKERS} --threads ${THREADS} --bind 0.0.0.0:${PORT} encrypt_service:app
-Restart=always
-RestartSec=5
-StandardOutput=append:/var/log/encrypt_service.log
-StandardError=append:/var/log/encrypt_service.err
-
-[Install]
-WantedBy=multi-user.target
-```
-
-**Ważne parametry:**
-- `Environment="PORT=5000"` — port HTTP (zmień np. na 8080)
-- `Environment="WORKERS=3"` — liczba procesów (workerów)
-- `Environment="THREADS=2"` — liczba wątków per worker
-- `WorkingDirectory` — katalog projektu
-- `ExecStart` — ścieżka do Gunicorna z wirtualnego środowiska
-
----
-
-### Wczytanie zmian i uruchomienie usługi
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable ksef-encryptor.service
-sudo systemctl start ksef-encryptor.service
-```
-
----
-
-### Sprawdzenie statusu
-
-```bash
-sudo systemctl status ksef-encryptor.service
-```
-
-Przykładowy wynik:
-```
-● ksef-encryptor.service - KSeF RSA Encryptor Gunicorn Service
-   Loaded: loaded (/etc/systemd/system/ksef-encryptor.service; enabled)
-   Active: active (running) since Fri 2025-10-17 09:41:13 CEST; 10s ago
- Main PID: 21345 (gunicorn)
-    Tasks: 4 (limit: 4915)
-   CGroup: /system.slice/ksef-encryptor.service
-           ├─21345 /home/ubuntu/KSeF-RSA-Encryptor-API/.venv/bin/gunicorn --workers 3 --threads 2 --bind 0.0.0.0:5000 encrypt_service:app
-           ├─21347 gunicorn: worker [1]
-           ├─21348 gunicorn: worker [2]
-           └─21349 gunicorn: worker [3]
-```
-
----
-
-### Logi aplikacji
-
-```bash
-sudo tail -f /var/log/encrypt_service.log
-sudo tail -f /var/log/encrypt_service.err
-```
-
----
-
-### Restart / zatrzymanie
-
-```bash
-sudo systemctl restart ksef-encryptor.service
-sudo systemctl stop ksef-encryptor.service
-```
-
----
-
-### Po starcie systemu
-
-Usługa uruchomi się automatycznie i będzie dostępna pod adresem:
-```
-http://localhost:<PORT>
-```
-
-Przykład:
-```
-http://localhost:5000
-```
-
----
-
-**Rekomendacja:**  
-W środowiskach produkcyjnych zaleca się używanie tego wariantu z Gunicornem zamiast natywnego serwera Flask.
-
-
----
-
-## 🐳 Uruchomienie w Dockerze
-
-### Budowa obrazu
-```bash
-docker build -t ksef-encryptor .
-```
-
-### Uruchomienie kontenera
-```bash
-docker run -p 5000:5000 ksef-encryptor
-```
-
-### Dynamiczny port i worker’y Gunicorna
-```bash
-docker run -e PORT=8080 -e WORKERS=4 -e THREADS=2 -p 8080:8080 ksef-encryptor
-```
-
----
-
-## Health-check (dla K8s / monitoringów)
-
-Użyj prostego endpointu:
-
-```bash
-curl http://localhost:5000/health
-```
-
-Zwraca:
-```json
-{ "status": "ok", "service": "KSeF RSA Encryptor" }
-```
-
----
-
-## Definicja OpenAPI
-
-Definicja znajduje się w pliku [`openapi.yaml`](./openapi.yaml).  
-Można ją pobrać w formacie JSON:
-```bash
-curl http://localhost:5000/apispec_1.json -o openapi.json
-```
-
----
-
-## Testy manualne
-
-### Z użyciem `curl`:
-```bash
-curl -X POST http://localhost:5000/encrypt \
+curl -s http://localhost:5000/sign_link \
   -H "Content-Type: application/json" \
-  -d '{"data_b64": "ZGFuZQ==", "cert_b64": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A..."}'
+  -d "{\"link_b64\":\"${LINK_B64}\",\"cert_pem_b64\":\"${CERT_B64}\",\"key_pem_b64\":\"${KEY_B64}\",\"key_password_b64\":\"${PASS_B64}\",\"alg\":\"ecdsa_p256\",\"ecdsa_format\":\"p1363\"}" \
+| jq .
 ```
 
-### W Swagger UI:
-Otwórz: [http://localhost:5000/apidocs](http://localhost:5000/apidocs)
+Aby podejrzeć wynik jako tekst (URL):
+```bash
+curl -s http://localhost:5000/sign_link \
+  -H "Content-Type: application/json" \
+  -d "{\"link_b64\":\"${LINK_B64}\",\"cert_pem_b64\":\"${CERT_B64}\",\"key_pem_b64\":\"${KEY_B64}\",\"key_password_b64\":\"${PASS_B64}\",\"alg\":\"ecdsa_p256\",\"ecdsa_format\":\"p1363\"}" \
+| jq -r '.link_b64' | base64 -d
+echo
+```
 
 ---
 
-## Zależności
+### Test `/sign_xml` (XAdES)
 
-| Pakiet | Opis |
-|--------|------|
-| **Flask** | Lekki framework webowy |
-| **Flasgger** | Swagger UI dla Flask |
-| **Flask-CORS** | Obsługa CORS |
-| **Cryptography** | Biblioteka kryptograficzna |
-| **Gunicorn** | Produkcyjny serwer WSGI |
+Pliki:
+- cert: `Auth-811-test.crt`
+- key:  `Auth-811-test.key`
+- pass: `zaq1@WSXcde3$RFV`
+- xml:  `request.xml`
+
+```bash
+XML_B64="$(base64 < request.xml | tr -d '\n')"
+CERT_B64="$(base64 < Auth-811-test.crt | tr -d '\n')"
+KEY_B64="$(base64 < Auth-811-test.key | tr -d '\n')"
+PASS_B64="$(printf '%s' 'zaq1@WSXcde3$RFV' | base64 | tr -d '\n')"
+
+# Uwaga: dobierz alg zgodnie z typem klucza:
+# - rsa_sha256 dla RSA
+# - ecdsa_sha256 dla EC (P-256)
+curl -s http://localhost:5000/sign_xml \
+  -H "Content-Type: application/json" \
+  -d "{\"xml_b64\":\"${XML_B64}\",\"cert_pem_b64\":\"${CERT_B64}\",\"key_pem_b64\":\"${KEY_B64}\",\"key_password_b64\":\"${PASS_B64}\",\"alg\":\"ecdsa_sha256\"}" \
+| jq .
+```
 
 ---
 
-## Autor
+### Save signed XML to file
 
-**Grzegorz Szawuła**  
+```bash
+curl -s http://localhost:5000/sign_xml \
+  -H "Content-Type: application/json" \
+  -d "{\"xml_b64\":\"${XML_B64}\",\"cert_pem_b64\":\"${CERT_B64}\",\"key_pem_b64\":\"${KEY_B64}\",\"key_password_b64\":\"${PASS_B64}\",\"alg\":\"ecdsa_sha256\"}" \
+| jq -r '.signed_xml_b64' | base64 -d > signed_request.xml
+
+echo "Saved: signed_request.xml"
+```
 
 ---
 
-## 📄 Licencja
+## Security Notes
 
-Projekt udostępniony na licencji **MIT**.  
-Używaj zgodnie z zasadami bezpieczeństwa swojej organizacji.
+- Serwis przyjmuje klucze prywatne i hasła — uruchamiaj go w zaufanym środowisku (sieć wewnętrzna, VPN, reverse proxy, ACL).
+- Rozważ ograniczenie rozmiaru payloadów oraz rate limiting.
+- W produkcji używaj TLS (np. Nginx/ALB) oraz wyłącz debug.
+- Nie loguj wejść zawierających klucze/hasła.
+
+---
+
+## OpenAPI / Swagger
+
+- Swagger UI: `GET /apidocs`
+- Spec (JSON): `GET /apispec_1.json`
+- Źródło definicji: `swaggerapi.yaml`
+
+---
+
+## Changelog
+
+# 📜 CHANGELOG
+**KSeF RSA Encryptor API**
+
+_Automatically compiled from Git commit history._
+
+---
+
+## [1.0.3] – 2025-10-17
+### Changed
+- Disabled **pretty print** in JSON responses to improve integration with external systems.
+- Adjusted JSON output formatting (compact mode) for cleaner API responses.
+
+---
+
+## [1.0.2] – 2025-10-17
+### Fixed
+- Improved error handling and response consistency for `/encrypt` endpoint.
+
+---
+
+## [1.0.1] – 2025-10-16
+### Added
+- Added **Swagger / OpenAPI** documentation (`swaggerapi.yaml`).
+- Added **project documentation** for external security audits (README, API specs, etc.).
+
+---
+
+## [1.0.0] – 2025-10-15
+### Initial release
+- Implemented core RSA encryption API:
+  - `/encrypt` endpoint using RSAES-OAEP (MGF1 + SHA-256)
+  - `/health` endpoint for monitoring
+- Added input validation and structured JSON error codes.
+- Added Flask app structure with CORS and Swagger integration.
+- Added `Dockerfile` for containerized deployment.
+- Initial repository setup and dependency list (`requirements.txt`).
+
+---
+
+### Author
+**Grzegorz Szawuła**
+GitHub: [zvgelo](https://github.com/zvgelo)
+
+---
+
+## Dependencies
+
+Minimalnie:
+- Flask
+- Flasgger
+- Flask-CORS
+- cryptography
+- gunicorn
+
+Dla endpointów podpisu (`/sign_xml`) wymagane są dodatkowo:
+- `lxml`
+- `signxml` (moduł XAdES / XMLDSig)
+
+Jeżeli chcesz, dodaj je do `requirements.txt` (przykładowo):
+- `lxml==5.*`
+- `signxml==4.*` (lub wersja zgodna z Twoim środowiskiem)
+
+---
+
+## Author
+
+**Grzegorz Szawuła**
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License**.
+Use in accordance with your organization’s security policies.
