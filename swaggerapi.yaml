@@ -2,28 +2,38 @@ swagger: "2.0"
 info:
   title: KSeF RSA Encryptor API
   description: |
-    API do szyfrowania danych RSAES-OAEP (MGF1 + SHA-256) zgodne z wymaganiami KSeF.  
-    Umożliwia szyfrowanie kluczy AES lub tokenów za pomocą certyfikatu RSA.
+    API do operacji kryptograficznych używanych w integracji z KSeF:
+
+    1) **/encrypt** – szyfrowanie RSAES-OAEP (MGF1 + SHA-256) zgodne z KSeF (np. klucz AES, token|timestamp) przy użyciu klucza publicznego z certyfikatu.
+    2) **/sign_link** – podpisywanie linku weryfikacyjnego KOD II dla trybu offline (RSA-PSS lub ECDSA P-256) i zwrot gotowego URL.
+    3) **/sign_xml** – podpis XML w formacie XAdES (enveloped) dla żądań uwierzytelniania (algorytm zależny od klucza: RSA-SHA256 lub ECDSA-SHA256).
+
+    Wszystkie wejścia/wyjścia binarne są przekazywane jako Base64 w JSON.
   version: "1.0.3"
   contact:
-    name: Grzegorz Szawuła
+    name: Grzegorz
     url: https://github.com/zvgelo
+
 host: localhost:5000
 basePath: /
 schemes:
   - http
-produces:
-  - application/json
 consumes:
+  - application/json
+produces:
   - application/json
 
 paths:
   /encrypt:
     post:
-      summary: Szyfruje dane wejściowe RSAES-OAEP (MGF1 + SHA-256)
+      summary: Szyfruje dane RSAES-OAEP (MGF1 + SHA-256) przy użyciu certyfikatu
       description: |
-        Endpoint szyfrujący dane Base64 za pomocą klucza publicznego z certyfikatu KSeF.  
-        W odpowiedzi zwraca zaszyfrowany wynik również w formacie Base64.
+        Endpoint szyfrujący `data_b64` przy użyciu klucza publicznego z certyfikatu `cert_b64`.
+        Zwraca wynik w Base64.
+
+        Algorytm: RSAES-OAEP, MGF1(SHA-256), SHA-256.
+      tags:
+        - RSA Encryptor
       parameters:
         - in: body
           name: body
@@ -38,52 +48,289 @@ paths:
               data_b64:
                 type: string
                 example: "ZGFuZV9pbnB1dA=="
-                description: Dane zakodowane Base64 (np. klucz AES lub token|timestamp)
+                description: Dane do zaszyfrowania (Base64), np. klucz AES lub token|timestamp
               cert_b64:
                 type: string
-                example: "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A..."
-                description: Certyfikat RSA w formacie PEM lub Base64 DER
+                example: "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t..."
+                description: Certyfikat publiczny (PEM w Base64 albo DER w Base64)
               return_b64:
                 type: boolean
                 example: true
                 default: true
-                description: Flaga określająca czy wynik ma być zwrócony jako Base64
+                description: Flaga zachowana dla kompatybilności (wynik i tak jest zwracany w Base64)
       responses:
         200:
           description: Dane zostały poprawnie zaszyfrowane
-          examples:
-            application/json:
-              status: "ok"
-              encrypted_b64: "MIICIjANBgkqhkiG9w0BAQEFAAOCAQ8A..."
+          schema:
+            type: object
+            required:
+              - status
+              - encrypted_b64
+            properties:
+              status:
+                type: string
+                example: "ok"
+              encrypted_b64:
+                type: string
+                example: "bW9ja19lbmNyeXB0ZWRfYnl0ZXM="
         400:
           description: Błąd walidacji danych wejściowych
-          examples:
-            application/json:
-              status: "error"
-              code: 101
-              message: "Brak wymaganych pól"
+          schema:
+            type: object
+            properties:
+              status:
+                type: string
+                example: "error"
+              code:
+                type: integer
+                example: 101
+              message:
+                type: string
+                example: "Brak wymaganych pól"
         500:
           description: Błąd wewnętrzny serwera
-          examples:
-            application/json:
-              status: "error"
-              code: 199
-              message: "Nieoczekiwany błąd: ..."
+          schema:
+            type: object
+            properties:
+              status:
+                type: string
+                example: "error"
+              code:
+                type: integer
+                example: 199
+              message:
+                type: string
+                example: "Nieoczekiwany błąd: ..."
+
+  /sign_link:
+    post:
+      summary: Podpisuje link weryfikacyjny KOD II (RSA-PSS lub ECDSA P-256)
+      operationId: sign_link
+      description: |
+        Generuje podpis dla linku weryfikacyjnego (KOD II) zgodnie z wymaganiami KSeF.
+
+        Podpisywany jest fragment URL: `host + path` bez protokołu (`https://`) i bez końcowego `/`.
+        Przykład ciągu do podpisu:
+
+        `qr-demo.ksef.mf.gov.pl/certificate/Nip/1111111111/1111111111/01ABC.../HASH...`
+
+        **Algorytmy:**
+        - `rsa_pss` – RSASSA-PSS, SHA-256, MGF1(SHA-256), salt=32 (klucz min. 2048 bit)
+        - `ecdsa_p256` – ECDSA (P-256 / secp256r1) + SHA-256, a podpis kodowany jako:
+          - `p1363` (rekomendowane): R||S po 32 bajty (64 bajty łącznie)
+          - `der`: ASN.1 DER SEQUENCE
+
+        Wejściowy link może być pełnym URL (`https://...`) lub bez schematu (`qr-demo...`).
+        Odpowiedź zawiera finalny link (z dopiętym podpisem jako ostatni segment ścieżki) w Base64.
       tags:
-        - RSA Encryptor
+        - Link Signer
+      parameters:
+        - in: body
+          name: body
+          required: true
+          description: Dane do podpisu linku
+          schema:
+            type: object
+            required:
+              - link_b64
+              - cert_pem_b64
+              - key_pem_b64
+            properties:
+              link_b64:
+                type: string
+                description: Pełny link do podpisania (Base64 z UTF-8). Może zawierać lub nie `https://` i może mieć końcowy `/`.
+                example: "cXItZGVtby5rc2VmLm1mLmdvdi5wbC9jZXJ0aWZpY2F0ZS9OaXAvODExMTY5MzM3MC84MTExNjkzMzcwLzAxM0MzNEQ0QzlCN0UyNzYvSGFzaA=="
+              cert_pem_b64:
+                type: string
+                description: Certyfikat PEM (Base64 z treści PEM). Używany do weryfikacji dopasowania do klucza prywatnego.
+                example: "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t..."
+              key_pem_b64:
+                type: string
+                description: Klucz prywatny PEM (Base64 z treści PEM).
+                example: "LS0tLS1CRUdJTiBFTkNSWVBURUQgUFJJVkFURSBLRVktLS0tLQ=="
+              key_password_b64:
+                type: string
+                description: Hasło do klucza prywatnego PEM – Base64(UTF-8). Opcjonalne.
+                example: "emFxMUBXU1hjZGUzJFJGVg=="
+              alg:
+                type: string
+                description: Wybór algorytmu podpisu.
+                enum:
+                  - rsa_pss
+                  - ecdsa_p256
+                default: rsa_pss
+                example: ecdsa_p256
+              ecdsa_format:
+                type: string
+                description: Format kodowania podpisu ECDSA.
+                enum:
+                  - p1363
+                  - der
+                default: p1363
+                example: p1363
+      responses:
+        200:
+          description: Podpis wygenerowany, zwrócono finalny link
+          schema:
+            type: object
+            required:
+              - link_b64
+              - alg_used
+            properties:
+              link_b64:
+                type: string
+                description: Finalny link (Base64 z UTF-8) zawierający podpis jako ostatni segment ścieżki.
+                example: "aHR0cHM6Ly9xci1kZW1vLmtzZWYubWYuZ292LnBsL2NlcnRpZmljYXRlL05pcC8xMTExMTExMTExLzExMTExMTExMTEvMDFG...L0hBU0guLi4vU0lHTi4uLg=="
+              alg_used:
+                type: string
+                example: "ecdsa_p256"
+              ecdsa_format_used:
+                type: string
+                example: "p1363"
+        400:
+          description: Błąd walidacji/wejścia
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Nie można wczytać klucza prywatnego PEM: ..."
+        500:
+          description: Błąd wewnętrzny serwera
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Nieoczekiwany błąd: ..."
+
+  /sign_xml:
+    post:
+      summary: Podpisuje XML w formacie XAdES (enveloped) – RSA-SHA256 lub ECDSA-SHA256
+      operationId: sign_xml
+      description: |
+        Podpisuje przekazany XML podpisem XAdES (enveloped).
+        Wejście jest przekazywane wyłącznie w Base64.
+
+        **Wybór algorytmu (`alg`):**
+        - `rsa_sha256` – gdy klucz prywatny jest RSA
+        - `ecdsa_sha256` – gdy klucz prywatny jest EC (wymuszane P-256 / secp256r1)
+
+        Zwracany jest podpisany dokument XML jako `signed_xml_b64` (Base64).
+      tags:
+        - XAdES Signer
+      parameters:
+        - in: body
+          name: body
+          required: true
+          description: Dane do podpisu XAdES
+          schema:
+            type: object
+            required:
+              - xml_b64
+              - cert_pem_b64
+              - key_pem_b64
+            properties:
+              xml_b64:
+                type: string
+                description: XML do podpisu (Base64).
+                example: "PEF1dGhUb2tlblJlcXVlc3Q+Li4uPC9BdXRoVG9rZW5SZXF1ZXN0Pg=="
+              cert_pem_b64:
+                type: string
+                description: Certyfikat w PEM (Base64 z treści PEM).
+                example: "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0t..."
+              key_pem_b64:
+                type: string
+                description: Klucz prywatny w PEM (Base64 z treści PEM).
+                example: "LS0tLS1CRUdJTiBFTkNSWVBURUQgUFJJVkFURSBLRVktLS0tLQ=="
+              key_password_b64:
+                type: string
+                description: Hasło do klucza prywatnego PEM – Base64(UTF-8). Opcjonalne.
+                example: "emFxMUBXU1hjZGUzJFJGVg=="
+              alg:
+                type: string
+                description: Wybór algorytmu podpisu.
+                enum:
+                  - rsa_sha256
+                  - ecdsa_sha256
+                default: rsa_sha256
+                example: ecdsa_sha256
+      responses:
+        200:
+          description: Podpis wygenerowany
+          schema:
+            type: object
+            required:
+              - signed_xml_b64
+              - alg_used
+            properties:
+              signed_xml_b64:
+                type: string
+                description: Podpisany XML (Base64).
+                example: "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0idXRmLTgiPz4KPFNpZ25lZC4uLg=="
+              alg_used:
+                type: string
+                example: "ecdsa_sha256"
+        400:
+          description: Błąd walidacji/wejścia
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Nie można wczytać klucza prywatnego PEM (key_pem_b64): ..."
+        500:
+          description: Błąd wewnętrzny serwera
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Nieoczekiwany błąd: ..."
 
   /health:
     get:
       summary: Health-check serwisu
       description: |
-        Endpoint do sprawdzania stanu aplikacji.  
-        Może być wykorzystywany w monitoringu (np. w Kubernetes).
+        Endpoint do sprawdzania stanu aplikacji.
+        Może być wykorzystywany w monitoringu (np. Kubernetes).
+      tags:
+        - Monitoring
       responses:
         200:
           description: Serwis działa poprawnie
-          examples:
-            application/json:
-              status: "ok"
-              service: "KSeF RSA Encryptor"
+          schema:
+            type: object
+            required:
+              - status
+              - service
+            properties:
+              status:
+                type: string
+                example: "ok"
+              service:
+                type: string
+                example: "KSeF RSA Encryptor"
+
+  /:
+    get:
+      summary: Informacja o serwisie
+      description: |
+        Prosty endpoint informacyjny – zwraca nazwę usługi, wersję oraz ścieżki do health i swagger UI.
       tags:
         - Monitoring
+      responses:
+        200:
+          description: OK
+          schema:
+            type: object
+            properties:
+              service:
+                type: string
+                example: "KSeF RSA Encryptor 1.0.3"
+              docs:
+                type: string
+                example: "/apidocs"
+              health:
+                type: string
+                example: "/health"
