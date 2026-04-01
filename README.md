@@ -273,6 +273,17 @@ curl -X POST "http://localhost:5000/generatePDF" \
 This example shows how to run the **KSeF RSA Encryptor API** as a systemd service on Linux.  
 The service starts automatically after a reboot and logs output to `/var/log`.
 
+### ⚠️ Important (Node.js with nvm)
+
+If you installed Node.js using **nvm**, systemd will **not** automatically detect it.  
+You must explicitly provide the Node.js path.
+
+Check your Node.js path:
+```bash
+which node
+```
+Example output:`/home/ubuntu/.nvm/versions/node/v20.20.2/bin/node`
+
 ### Create a systemd unit file
 
 ```bash
@@ -290,6 +301,11 @@ After=network.target
 User=ubuntu
 Group=ubuntu
 WorkingDirectory=/home/ubuntu/KSeF-RSA-Encryptor-API
+
+# Required if Node.js is installed via nvm
+Environment="KSEF_NODE_BIN=/home/ubuntu/.nvm/versions/node/v20.20.2/bin/node"
+Environment="PATH=/home/ubuntu/.nvm/versions/node/v20.20.2/bin:/usr/local/bin:/usr/bin:/bin"
+
 Environment="PORT=5000"
 ExecStart=/home/ubuntu/KSeF-RSA-Encryptor-API/.venv/bin/python3 /home/ubuntu/KSeF-RSA-Encryptor-API/encrypt_service.py
 Restart=always
@@ -324,6 +340,11 @@ After=network.target
 User=ubuntu
 Group=ubuntu
 WorkingDirectory=/home/ubuntu/KSeF-RSA-Encryptor-API
+
+# Required if Node.js is installed via nvm
+Environment="KSEF_NODE_BIN=/home/ubuntu/.nvm/versions/node/v20.20.2/bin/node"
+Environment="PATH=/home/ubuntu/.nvm/versions/node/v20.20.2/bin:/usr/local/bin:/usr/bin:/bin"
+
 Environment="PORT=5000"
 Environment="WORKERS=3"
 Environment="THREADS=2"
