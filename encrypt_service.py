@@ -460,18 +460,37 @@ def generate_pdf():
         if not isinstance(body, dict):
             return Response(json.dumps({"error": "Body musi być obiektem JSON."}), status=400, mimetype="application/json")
 
-        xml_content = body.get("xml_content") or body.get("xml")
+        # xml_content = body.get("xml_content") or body.get("xml")
+        xml_b64 = body.get("xml_b64")
         response_type = (body.get("response_type") or "base64").lower()
         additional_data = body.get("additional_data") or {}
 
-        if not isinstance(xml_content, str) or not xml_content.strip():
-            return Response(json.dumps({"error": "Wymagane: 'xml_content' (string z XML)."}), status=400, mimetype="application/json")
+        if not isinstance(xml_b64, str) or not xml_b64.strip():
+            return Response(json.dumps({"error": "Wymagane: 'xml_b64' (Base64 zakodowany XML)."}), status=400, mimetype="application/json")
 
         if response_type not in {"base64", "binary"}:
             return Response(json.dumps({"error": "response_type musi być 'base64' albo 'binary'."}), status=400, mimetype="application/json")
 
         if not isinstance(additional_data, dict):
             return Response(json.dumps({"error": "additional_data musi być obiektem JSON."}), status=400, mimetype="application/json")
+
+        try:
+            xml_bytes = base64.b64decode(xml_b64, validate=True)
+        except Exception as exc:
+            return Response(
+                json.dumps({"error": f"Błąd Base64 w xml_b64: {exc}"}),
+                status=400,
+                mimetype="application/json",
+            )
+
+        try:
+            xml_content = xml_bytes.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            return Response(
+                json.dumps({"error": f"xml_b64 nie zawiera poprawnego UTF-8 XML: {exc}"}),
+                status=400,
+                mimetype="application/json",
+            )
 
         pdf_b64 = run_pdf_generator(xml_content, additional_data)
 
