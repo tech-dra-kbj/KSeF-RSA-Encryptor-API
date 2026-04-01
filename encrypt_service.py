@@ -4,6 +4,7 @@ from flask_cors import CORS
 import base64
 import os
 import json
+import subprocess
 from cryptography.hazmat.primitives.asymmetric import rsa, ec, utils
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
@@ -26,6 +27,47 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s [%(levelname)s] %(message)s",
 )
+
+
+def run_pdf_generator(xml_content, additional_data):
+    node_bin = os.getenv("KSEF_NODE_BIN", "node")
+    bridge_path = os.getenv("KSEF_PDF_BRIDGE_PATH", os.path.join(os.path.dirname(os.path.abspath(__file__)), "pdf_generator_bridge.mjs"))
+    timeout_seconds = float(os.getenv("KSEF_PDF_TIMEOUT_SECONDS", "60"))
+
+    payload = json.dumps({
+        "xmlContent": xml_content,
+        "additionalData": additional_data,
+    }, separators=(",", ":"))
+
+    try:
+        process = subprocess.run(
+            [node_bin, bridge_path],
+            input=payload,
+            text=True,
+            capture_output=True,
+            timeout=timeout_seconds,
+            check=False,
+        )
+    except FileNotFoundError as exc:
+        raise RuntimeError("Node.js executable not found. Set KSEF_NODE_BIN or install node.") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError("PDF generator timeout") from exc
+
+    if process.returncode != 0:
+        stderr_text = (process.stderr or "").strip()
+        error_message = stderr_text or "Unknown PDF generator error"
+        raise RuntimeError(f"PDF generator failed: {error_message}")
+
+    try:
+        output_data = json.loads(process.stdout or "{}")
+    except json.JSONDecodeError as exc:
+        raise RuntimeError("Invalid PDF generator response") from exc
+
+    pdf_b64 = output_data.get("base64")
+    if not isinstance(pdf_b64, str) or not pdf_b64:
+        raise RuntimeError("PDF generator returned empty output")
+
+    return pdf_b64
 
 
 def load_ksef_public_key_from_string(cert_str: str):
@@ -411,6 +453,42 @@ def sign_link():
         logging.exception("sign_link error")
         return Response(json.dumps({"error": str(e)}), status=400, mimetype="application/json")
 
+@app.route("/generatePDF", methods=["POST"])
+def generate_pdf():
+    try:
+        body = request.get_json(force=True, silent=False)
+        if not isinstance(body, dict):
+            return Response(json.dumps({"error": "Body musi być obiektem JSON."}), status=400, mimetype="application/json")
+
+        xml_content = body.get("xml_content") or body.get("xml")
+        response_type = (body.get("response_type") or "base64").lower()
+        additional_data = body.get("additional_data") or {}
+
+        if not isinstance(xml_content, str) or not xml_content.strip():
+            return Response(json.dumps({"error": "Wymagane: 'xml_content' (string z XML)."}), status=400, mimetype="application/json")
+
+        if response_type not in {"base64", "binary"}:
+            return Response(json.dumps({"error": "response_type musi być 'base64' albo 'binary'."}), status=400, mimetype="application/json")
+
+        if not isinstance(additional_data, dict):
+            return Response(json.dumps({"error": "additional_data musi być obiektem JSON."}), status=400, mimetype="application/json")
+
+        pdf_b64 = run_pdf_generator(xml_content, additional_data)
+
+        if response_type == "binary":
+            try:
+                pdf_bytes = base64.b64decode(pdf_b64, validate=True)
+            except Exception as exc:
+                raise RuntimeError(f"Invalid Base64 PDF payload: {exc}") from exc
+
+            return Response(pdf_bytes, mimetype="application/pdf", headers={"Content-Disposition": 'inline; filename="invoice.pdf"'})
+
+        return Response(json.dumps({"status": "ok", "pdf_b64": pdf_b64}, separators=(",", ":")), mimetype="application/json")
+
+    except Exception as e:
+        logging.exception("generate_pdf error")
+        return Response(json.dumps({"error": str(e)}), status=500, mimetype="application/json")
+
 @app.route("/health", methods=["GET"])
 def health():
     body = {"status": "ok", "service": "KSeF RSA Encryptor"}
@@ -420,9 +498,10 @@ def health():
 @app.route("/", methods=["GET"])
 def index():
     body = {
-        "service": "KSeF RSA Encryptor 1.1.0",
+        "service": "KSeF RSA Encryptor 1.2.0",
         "docs": "/apidocs",
-        "health": "/health"
+        "health": "/health",
+        "generate_pdf": "/generatePDF"
     }
     return Response(json.dumps(body, separators=(",", ":")), mimetype="application/json")
 

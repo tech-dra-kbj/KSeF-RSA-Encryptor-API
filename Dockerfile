@@ -8,10 +8,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends nodejs npm \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY swaggerapi.yaml encrypt_service.py .
+COPY swaggerapi.yaml encrypt_service.py pdf_generator_bridge.mjs .
+COPY pdf-generator/dist ./pdf-generator/dist
 
 EXPOSE ${PORT}
 
