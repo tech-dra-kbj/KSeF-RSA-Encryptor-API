@@ -296,9 +296,43 @@ paths:
       description: |
         Generuje wizualizację PDF faktury z XML (FA(1), FA(2), FA(3), FA_RR).
 
-        - Wejście: surowy XML w polu `xml_content`.
-        - Domyślnie odpowiedź zwracana jest jako JSON z `pdf_b64`.
-        - Dla `response_type = binary` endpoint zwraca bezpośrednio `application/pdf`.
+        - Wejście: XML przekazany jako Base64 w polu `xml_b64`
+        - Domyślnie odpowiedź zwracana jest jako JSON z `pdf_b64`
+        - Dla `response_type = binary` endpoint zwraca bezpośrednio `application/pdf`
+        
+        Przykład użycia (curl + jq – rekomendowane)
+
+                curl -X POST http://localhost:5000/generatePDF \
+                  -H "Content-Type: application/json" \
+                  -d "$(jq -n \
+                    --arg xml_b64 "$(base64 -w 0 plik.xml)" \
+                    '{
+                      xml_b64: $xml_b64,
+                      response_type: "base64",
+                      additional_data: {
+                        nrKSeF: "20260101-1234567890-ABCDEF1234567890"
+                      }
+                    }'
+                  )"
+
+        Przykład użycia (curl bez jq)
+
+                curl -X POST http://localhost:5000/generatePDF \
+                  -H "Content-Type: application/json" \
+                  -d "{\"xml_b64\":\"$(base64 -w 0 plik.xml)\",\"response_type\":\"base64\"}"
+        
+        Przykład zapisania PDF do pliku
+
+                curl -X POST http://localhost:5000/generatePDF \
+                  -H "Content-Type: application/json" \
+                  -d "$(jq -n \
+                    --arg xml_b64 "$(base64 -w 0 plik.xml)" \
+                    '{
+                      xml_b64: $xml_b64,
+                      response_type: "binary"
+                    }'
+                  )" \
+                  --output faktura.pdf
       tags:
         - PDF Generator
       consumes:
@@ -314,12 +348,12 @@ paths:
           schema:
             type: object
             required:
-              - xml_content
+              - xml_b64
             properties:
-              xml_content:
+              xml_b64:
                 type: string
-                description: Zawartość XML faktury jako tekst UTF-8.
-                example: "<Faktura><Naglowek>...</Naglowek></Faktura>"
+                description: Zawartość XML faktury zakodowana jako Base64(UTF-8).
+                example: "PEZha3R1cmE+PE5hZ2xvd2VrPi4uLjwvTmFnbG93ZWs+PC9GYWt0dXJhPg=="
               response_type:
                 type: string
                 description: Format odpowiedzi.
@@ -330,20 +364,13 @@ paths:
                 example: base64
               additional_data:
                 type: object
-                description: Dodatkowe dane przekazywane do generatora (np. nrKSeF, qrCode, qr2Code, isMobile).
-                properties:
-                  nrKSeF:
-                    type: string
-                    example: "20260101-1234567890-ABCDEF1234567890"
-                  qrCode:
-                    type: string
-                    example: "https://example.com/qr"
-                  qr2Code:
-                    type: string
-                    example: "https://example.com/qr2"
-                  isMobile:
-                    type: boolean
-                    example: false
+                description: Dodatkowe dane przekazywane do generatora.
+                additionalProperties: true
+                example:
+                  nrKSeF: "20260101-1234567890-ABCDEF1234567890"
+                  qrCode: "https://example.com/qr"
+                  qr2Code: "https://example.com/qr2"
+                  isMobile: false
       responses:
         200:
           description: PDF wygenerowany
@@ -363,7 +390,7 @@ paths:
             properties:
               error:
                 type: string
-                example: "Wymagane: 'xml_content' (string z XML)."
+                example: "Wymagane: 'xml_b64' (Base64 zakodowany XML)."
         500:
           description: Błąd wewnętrzny generatora PDF
           schema:
@@ -412,7 +439,7 @@ paths:
             properties:
               service:
                 type: string
-                example: "KSeF RSA Encryptor 1.0.3"
+                example: "KSeF RSA Encryptor 1.2.0"
               docs:
                 type: string
                 example: "/apidocs"
