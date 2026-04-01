@@ -141,7 +141,7 @@ Signs an XML payload using **XAdES** in *enveloped* mode.
 
 Generates invoice PDF visualization from XML.
 
-- Input: `xml_content` (raw XML string)
+- Input: `xml_b64` (XML binary in base64)
 - Optional: `response_type` = `base64` (default) or `binary`
 - Optional: `additional_data` object (`nrKSeF`, `qrCode`, `qr2Code`, `isMobile`)
 - Output for `base64`: JSON `{ "status": "ok", "pdf_b64": "..." }`
@@ -208,7 +208,7 @@ Simple health-check endpoint for monitoring/Kubernetes probes.
 #### Example request (Base64 response)
 ```json
 {
-  "xml_content": "<Faktura><Naglowek><KodFormularza kodSystemowy=\"FA (2)\"/></Naglowek></Faktura>",
+  "xml_b64": "PEF1dGhUb2tlblJ....lcXVlc3Q+Li4uPC9BdXRoVG9rZW5SZXF1ZXN0Pg==",
   "response_type": "base64",
   "additional_data": {
     "nrKSeF": "20260101-1234567890-ABCDEF1234567890",
@@ -229,7 +229,7 @@ Simple health-check endpoint for monitoring/Kubernetes probes.
 ```bash
 curl -X POST "http://localhost:5000/generatePDF" \
   -H "Content-Type: application/json" \
-  -d '{"xml_content":"<Faktura>...</Faktura>","response_type":"binary"}' \
+  -d '{"xml_content":"PEF1dGhUb2tlblJ...rZW5SZXF1ZXN0Pg==","response_type":"binary"}' \
   --output invoice.pdf
 ```
 
