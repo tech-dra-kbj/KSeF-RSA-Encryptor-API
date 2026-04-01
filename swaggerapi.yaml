@@ -7,9 +7,10 @@ info:
     1) **/encrypt** – szyfrowanie RSAES-OAEP (MGF1 + SHA-256) zgodne z KSeF (np. klucz AES, token|timestamp) przy użyciu klucza publicznego z certyfikatu.
     2) **/sign_link** – podpisywanie linku weryfikacyjnego KOD II dla trybu offline (RSA-PSS lub ECDSA P-256) i zwrot gotowego URL.
     3) **/sign_xml** – podpis XML w formacie XAdES (enveloped) dla żądań uwierzytelniania (algorytm zależny od klucza: RSA-SHA256 lub ECDSA-SHA256).
+    4) **/generatePDF** – generowanie wizualizacji faktury PDF na podstawie XML (odpowiedź jako Base64 albo `application/pdf`).
 
     Wszystkie wejścia/wyjścia binarne są przekazywane jako Base64 w JSON.
-  version: "1.0.3"
+  version: "1.2.0"
   contact:
     name: Grzegorz
     url: https://github.com/zvgelo
@@ -287,6 +288,90 @@ paths:
               error:
                 type: string
                 example: "Nieoczekiwany błąd: ..."
+
+  /generatePDF:
+    post:
+      summary: Generuje PDF faktury na podstawie XML
+      operationId: generate_pdf
+      description: |
+        Generuje wizualizację PDF faktury z XML (FA(1), FA(2), FA(3), FA_RR).
+
+        - Wejście: surowy XML w polu `xml_content`.
+        - Domyślnie odpowiedź zwracana jest jako JSON z `pdf_b64`.
+        - Dla `response_type = binary` endpoint zwraca bezpośrednio `application/pdf`.
+      tags:
+        - PDF Generator
+      consumes:
+        - application/json
+      produces:
+        - application/json
+        - application/pdf
+      parameters:
+        - in: body
+          name: body
+          required: true
+          description: Dane wejściowe do generowania PDF
+          schema:
+            type: object
+            required:
+              - xml_content
+            properties:
+              xml_content:
+                type: string
+                description: Zawartość XML faktury jako tekst UTF-8.
+                example: "<Faktura><Naglowek>...</Naglowek></Faktura>"
+              response_type:
+                type: string
+                description: Format odpowiedzi.
+                enum:
+                  - base64
+                  - binary
+                default: base64
+                example: base64
+              additional_data:
+                type: object
+                description: Dodatkowe dane przekazywane do generatora (np. nrKSeF, qrCode, qr2Code, isMobile).
+                properties:
+                  nrKSeF:
+                    type: string
+                    example: "20260101-1234567890-ABCDEF1234567890"
+                  qrCode:
+                    type: string
+                    example: "https://example.com/qr"
+                  qr2Code:
+                    type: string
+                    example: "https://example.com/qr2"
+                  isMobile:
+                    type: boolean
+                    example: false
+      responses:
+        200:
+          description: PDF wygenerowany
+          schema:
+            type: object
+            properties:
+              status:
+                type: string
+                example: "ok"
+              pdf_b64:
+                type: string
+                example: "JVBERi0xLjQKJcTl8uXr..."
+        400:
+          description: Błąd walidacji wejścia
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "Wymagane: 'xml_content' (string z XML)."
+        500:
+          description: Błąd wewnętrzny generatora PDF
+          schema:
+            type: object
+            properties:
+              error:
+                type: string
+                example: "PDF generator failed: ..."
 
   /health:
     get:

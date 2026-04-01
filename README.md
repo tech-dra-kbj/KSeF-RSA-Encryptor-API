@@ -12,6 +12,7 @@ The service is built with **Flask + Gunicorn**, provides documentation via **Swa
 - [Local Run](#local-run)
 - [Endpoints](#endpoints)
   - [`/encrypt`](#encrypt)
+  - [`/generatePDF`](#generatepdf)
   - [`/sign_xml`](#sign_xml)
   - [`/sign_link`](#sign_link)
   - [`/health`](#health)
@@ -33,6 +34,7 @@ The service is built with **Flask + Gunicorn**, provides documentation via **Swa
 - RSAES-OAEP encryption (MGF1 + SHA-256) for KSeF RSA encryption use-cases
 - XAdES signing for XML payloads (RSA-SHA256 or ECDSA-SHA256, enveloped)
 - KSeF offline QR verification link signing (RSA-PSS or ECDSA P-256, Base64URL output)
+- Invoice PDF generation from XML (`/generatePDF`, Base64 or binary PDF response)
 - OpenAPI (Swagger UI) documentation
 - Health-check endpoint (`/health`)
 - Docker-ready with Gunicorn
@@ -46,6 +48,8 @@ The service is built with **Flask + Gunicorn**, provides documentation via **Swa
 ```text
 .
 ├── encrypt_service.py      # Main Flask app
+├── pdf_generator_bridge.mjs # Node bridge for PDF generation
+├── pdf-generator/dist/     # Built PDF generator files (to be copied into this repo)
 ├── swaggerapi.yaml         # API definition (OpenAPI / Swagger)
 ├── requirements.txt        # Python dependencies
 └── Dockerfile              # Docker container definition (Python + Gunicorn)
@@ -56,6 +60,7 @@ The service is built with **Flask + Gunicorn**, provides documentation via **Swa
 ## Requirements
 
 - Python **3.10+**
+- Node.js **20+** (runtime required by `/generatePDF`)
 - Pip / venv
 - Docker (optional)
 
@@ -68,6 +73,23 @@ The service is built with **Flask + Gunicorn**, provides documentation via **Swa
 git clone https://github.com/zvgelo/KSeF-RSA-Encryptor-API.git
 cd KSeF-RSA-Encryptor-API
 ```
+
+### Install Node.js (20+)
+
+Using nvm (recommended):
+```bash
+nvm install 20
+nvm use 20
+node -v
+```
+
+### Prepare PDF generator bundle (`/generatePDF`)
+
+Make sure build artifacts are present in:
+`pdf-generator/dist/`
+
+Expected file (entrypoint):
+`pdf-generator/dist/ksef-fe-invoice-converter.js`
 
 ### Install dependencies
 ```bash
@@ -82,6 +104,13 @@ pip install -r requirements.txt
 ```bash
 python encrypt_service.py
 ```
+
+Optional environment variables for `/generatePDF`:
+
+- `KSEF_NODE_BIN` (default: `node`)
+- `KSEF_PDF_BRIDGE_PATH` (default: `./pdf_generator_bridge.mjs`)
+- `KSEF_PDF_MODULE_PATH` (default: `./pdf-generator/dist/ksef-fe-invoice-converter.js`)
+- `KSEF_PDF_TIMEOUT_SECONDS` (default: `60`)
 
 Service will be available at:
 - http://localhost:5000
@@ -107,6 +136,16 @@ Signs an XML payload using **XAdES** in *enveloped* mode.
 - Optional: `key_password_b64`
 - Algorithm selection: `alg` = `rsa_sha256` (default) or `ecdsa_sha256`
 - Output: `signed_xml_b64` and `alg_used`
+
+### `/generatePDF`
+
+Generates invoice PDF visualization from XML.
+
+- Input: `xml_content` (raw XML string)
+- Optional: `response_type` = `base64` (default) or `binary`
+- Optional: `additional_data` object (`nrKSeF`, `qrCode`, `qr2Code`, `isMobile`)
+- Output for `base64`: JSON `{ "status": "ok", "pdf_b64": "..." }`
+- Output for `binary`: `application/pdf`
 
 ### `/sign_link`
 
@@ -160,6 +199,38 @@ Simple health-check endpoint for monitoring/Kubernetes probes.
   "key_password_b64": "emFxMUBXU1hjZGUzJFJGVg==",
   "alg": "rsa_sha256"
 }
+```
+
+### Endpoint `/generatePDF`
+
+**POST** `http://localhost:5000/generatePDF`
+
+#### Example request (Base64 response)
+```json
+{
+  "xml_content": "<Faktura><Naglowek><KodFormularza kodSystemowy=\"FA (2)\"/></Naglowek></Faktura>",
+  "response_type": "base64",
+  "additional_data": {
+    "nrKSeF": "20260101-1234567890-ABCDEF1234567890",
+    "isMobile": false
+  }
+}
+```
+
+#### Example response
+```json
+{
+  "status": "ok",
+  "pdf_b64": "JVBERi0xLjQKJcTl8uXr..."
+}
+```
+
+#### Example request (binary PDF)
+```bash
+curl -X POST "http://localhost:5000/generatePDF" \
+  -H "Content-Type: application/json" \
+  -d '{"xml_content":"<Faktura>...</Faktura>","response_type":"binary"}' \
+  --output invoice.pdf
 ```
 
 #### Example response

@@ -1,0 +1,26 @@
+import { default as FormatTyp } from '../enums/common.enum';
+export declare const TRodzajFaktury: Record<string, string>;
+export declare const TypKorekty: Record<string, string>;
+export declare const TStawkaPodatku_FA1: Record<string, string>;
+export declare const TStawkaPodatku_FA2: Record<string, string>;
+export declare const TStawkaPodatku_FA3: Record<string, string>;
+export declare const Kraj: Record<string, string>;
+export declare const FA3RolaPodmiotu3: Record<string, string>;
+export declare const FA2RolaPodmiotu3: Record<string, string>;
+export declare const FA1RolaPodmiotu3: Record<string, string>;
+export declare const TRolaPodmiotuUpowaznionegoFA3: Record<string, string>;
+export declare const TRolaPodmiotuUpowaznionegoFA2: Record<string, string>;
+export declare const TRolaPodmiotuUpowaznionegoFA1: Record<string, string>;
+export declare const FormaPlatnosci: Record<string, string>;
+export declare const RodzajTransportu: Record<string, string>;
+export declare const TypRachunkowWlasnych: Record<string, string>;
+export declare const Procedura: Record<string, string>;
+export declare const TableDataType: Record<string, FormatTyp>;
+export declare const TypLadunku: Record<string, string>;
+export declare const DEFAULT_TABLE_LAYOUT: {
+    hLineWidth: () => number;
+    hLineColor: () => string;
+    vLineWidth: () => number;
+    vLineColor: () => string;
+};
+export declare const TAXPAYER_STATUS: Record<string, string>;
