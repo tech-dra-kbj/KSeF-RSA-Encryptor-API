@@ -43402,7 +43402,8 @@ function WE(n) {
 }
 function VE(n) {
   const z = [];
-  if (n?.qrCode && n.nrKSeF) {
+  if (n?.qrCode) {
+    const yA = n.nrKSeF || "OFFLINE";
     const b = Ho(n.qrCode);
     z.push(mt("Sprawdź, czy Twoja faktura znajduje się w KSeF!")), b && z.push({
       columns: [
@@ -43410,7 +43411,7 @@ function VE(n) {
           stack: [
             b,
             {
-              stack: [VA(n.nrKSeF, K.Default)],
+              stack: [VA(yA, K.Default)],
               width: "auto",
               alignment: "left",
               marginLeft: 0,
@@ -43469,7 +43470,7 @@ function ZE(n) {
             {
               stack: [VA(n.qr2Code, K.Link)],
               marginTop: 5,
-              link: n.qrCode
+              link: n.qr2Code
             }
           ],
           margin: [10, (b.fit ?? 120) / 2 - 30, 0, 0],

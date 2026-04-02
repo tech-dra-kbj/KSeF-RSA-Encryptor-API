@@ -70,6 +70,47 @@ def run_pdf_generator(xml_content, additional_data):
     return pdf_b64
 
 
+def normalize_pdf_additional_data(additional_data):
+    normalized = {}
+
+    if not isinstance(additional_data, dict):
+        return normalized
+
+    nr_ksef = additional_data.get("nr_ksef")
+    if nr_ksef is None:
+        nr_ksef = additional_data.get("nrKSeF")
+    if nr_ksef is not None:
+        normalized["nrKSeF"] = str(nr_ksef)
+
+    qr_code = additional_data.get("qr_code")
+    if qr_code is None:
+        qr_code = additional_data.get("qrCode")
+    if qr_code is not None:
+        normalized["qrCode"] = str(qr_code)
+
+    qr2_code = additional_data.get("qr2_code")
+    if qr2_code is None:
+        qr2_code = additional_data.get("qr2Code")
+    if qr2_code is not None:
+        normalized["qr2Code"] = str(qr2_code)
+
+    is_mobile = additional_data.get("is_mobile")
+    if is_mobile is None:
+        is_mobile = additional_data.get("isMobile")
+    if is_mobile is not None:
+        if isinstance(is_mobile, str):
+            normalized["isMobile"] = is_mobile.strip().lower() in {
+                "1",
+                "true",
+                "yes",
+                "y",
+            }
+        else:
+            normalized["isMobile"] = bool(is_mobile)
+
+    return normalized
+
+
 def load_ksef_public_key_from_string(cert_str: str):
     cert_str = cert_str.strip()
     try:
@@ -459,8 +500,6 @@ def generate_pdf():
         body = request.get_json(force=True, silent=False)
         if not isinstance(body, dict):
             return Response(json.dumps({"error": "Body musi być obiektem JSON."}), status=400, mimetype="application/json")
-
-        # xml_content = body.get("xml_content") or body.get("xml")
         xml_b64 = body.get("xml_b64")
         response_type = (body.get("response_type") or "base64").lower()
         additional_data = body.get("additional_data") or {}
@@ -492,7 +531,8 @@ def generate_pdf():
                 mimetype="application/json",
             )
 
-        pdf_b64 = run_pdf_generator(xml_content, additional_data)
+        additional_data_mapped = normalize_pdf_additional_data(additional_data)
+        pdf_b64 = run_pdf_generator(xml_content, additional_data_mapped)
 
         if response_type == "binary":
             try:
