@@ -2,3 +2,5 @@
 venv/
 FETCH_HEAD
 .idea/
+__pycache__/
+*.pyc
