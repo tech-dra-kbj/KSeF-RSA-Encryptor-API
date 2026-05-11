@@ -8,8 +8,6 @@ from core.crypto_utils import (
     rsa_oaep_encrypt,
     aes_cbc_decrypt,
     aes_cbc_encrypt,
-    verify_hmac_sha256,
-    compute_hmac_sha256,
 )
 
 from core.key_manager import get_private_key_pem_for_kid
@@ -22,24 +20,20 @@ def decrypt_request(payload: dict) -> dict:
     enc_key = base64.b64decode(payload["enc_key_b64"])
     iv = base64.b64decode(payload["iv_b64"])
     ciphertext = base64.b64decode(payload["ciphertext_b64"])
-    mac = base64.b64decode(payload["hmac_b64"])
 
-    # 1. load private key
+    # Load private key for selected SID/KID.
     private_key_pem = get_private_key_pem_for_kid(sid, kid)
     private_key = load_private_key_pem(private_key_pem)
 
-    # 2. decrypt AES key
+    # Decrypt AES key using RSA-OAEP.
     aes_key = rsa_oaep_decrypt(private_key, enc_key)
 
-    # 3. verify HMAC (Encrypt-then-MAC)
-    verify_hmac_sha256(aes_key, iv + ciphertext, mac)
-
-    # 4. decrypt payload
+    # Decrypt payload using AES-CBC.
     plaintext = aes_cbc_decrypt(aes_key, iv, ciphertext)
 
     return {
         "plaintext": plaintext,
-        "aes_key": aes_key,  # needed for response if symmetric reuse (optional)
+        "aes_key": aes_key,
     }
 
 
@@ -51,12 +45,10 @@ def encrypt_response(plaintext: bytes, reply_public_key_pem_b64: str) -> dict:
     iv = secrets.token_bytes(16)
 
     ciphertext = aes_cbc_encrypt(aes_key, iv, plaintext)
-    mac = compute_hmac_sha256(aes_key, iv + ciphertext)
     enc_key = rsa_oaep_encrypt(reply_pub, aes_key)
 
     return {
-        "enc_key_b64": base64.b64encode(enc_key).decode(),
-        "iv_b64": base64.b64encode(iv).decode(),
-        "ciphertext_b64": base64.b64encode(ciphertext).decode(),
-        "hmac_b64": base64.b64encode(mac).decode(),
+        "enc_key_b64": base64.b64encode(enc_key).decode("ascii"),
+        "iv_b64": base64.b64encode(iv).decode("ascii"),
+        "ciphertext_b64": base64.b64encode(ciphertext).decode("ascii"),
     }

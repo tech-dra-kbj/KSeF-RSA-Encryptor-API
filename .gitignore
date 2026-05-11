@@ -1,6 +1,12 @@
-.venv/
-venv/
-FETCH_HEAD
 .idea/
+.vscode/
+venv/
+.venv/
 __pycache__/
 *.pyc
+instance/*.db
+instance/*.sqlite
+instance/*.sqlite3
+pytest_cache/
+.pytest_cache/
+FETCH_HEAD

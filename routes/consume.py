@@ -14,7 +14,14 @@ def consume():
     try:
         body = request.get_json(force=True, silent=False)
 
-        required = ["sid", "kid", "enc_key_b64", "iv_b64", "ciphertext_b64", "hmac_b64"]
+        if not isinstance(body, dict):
+            return Response(
+                json.dumps({"error": "Body must be a JSON object."}),
+                status=400,
+                mimetype="application/json",
+            )
+
+        required = ["sid", "kid", "enc_key_b64", "iv_b64", "ciphertext_b64"]
         missing = [k for k in required if not body.get(k)]
 
         if missing:
@@ -35,18 +42,22 @@ def consume():
 
         plaintext = result["plaintext"]
 
-        # 🔥 NA RAZIE: echo (możesz później podpiąć logikę biznesową)
+        # For now: echo decrypted payload.
+        # Later this will dispatch internal target, e.g. /encrypt.
         response_payload = plaintext
 
         reply_pub = body.get("reply_public_key_pem_b64")
 
-        # jeśli brak reply key → zwracamy plaintext
+        # If no reply key is provided, return plaintext for debug/testing.
         if not reply_pub:
             return Response(
-                json.dumps({
-                    "status": "ok",
-                    "plaintext_b64": base64.b64encode(response_payload).decode(),
-                }),
+                json.dumps(
+                    {
+                        "status": "ok",
+                        "plaintext_b64": base64.b64encode(response_payload).decode("ascii"),
+                    },
+                    separators=(",", ":"),
+                ),
                 mimetype="application/json",
             )
 
@@ -60,10 +71,13 @@ def consume():
             )
 
         return Response(
-            json.dumps({
-                "status": "ok",
-                "reply": encrypted
-            }),
+            json.dumps(
+                {
+                    "status": "ok",
+                    "reply": encrypted,
+                },
+                separators=(",", ":"),
+            ),
             mimetype="application/json",
         )
 
