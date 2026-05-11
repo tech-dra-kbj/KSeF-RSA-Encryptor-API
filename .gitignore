@@ -1,0 +1,4 @@
+.venv/
+venv/
+FETCH_HEAD
+.idea/
