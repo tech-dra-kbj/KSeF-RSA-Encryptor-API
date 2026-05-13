@@ -13,7 +13,7 @@ DB_PATH = os.getenv("KEY_DB_PATH", os.path.join(INSTANCE_DIR, "keys.db"))
 # Key settings
 # ==============================
 
-DEFAULT_TTL_SECONDS = 3600
+DEFAULT_TTL_SECONDS = 86400
 KEY_TTL_SECONDS = int(os.getenv("KEY_TTL_SECONDS", DEFAULT_TTL_SECONDS))
 
 RSA_KEY_SIZE = 2048

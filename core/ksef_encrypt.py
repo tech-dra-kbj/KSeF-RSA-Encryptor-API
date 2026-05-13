@@ -9,19 +9,26 @@ from cryptography.hazmat.primitives.asymmetric import padding as asym_padding
 def load_ksef_public_key_from_string(cert_str: str):
     cert_str = cert_str.strip()
 
+    # Try Base64-encoded payload (DER cert or PEM cert)
     try:
-        cert_der = base64.b64decode(cert_str)
-        cert = x509.load_der_x509_certificate(cert_der, default_backend())
-        return cert.public_key()
+        decoded = base64.b64decode(cert_str)
+        try:
+            return x509.load_der_x509_certificate(decoded, default_backend()).public_key()
+        except Exception:
+            pass
+        try:
+            return x509.load_pem_x509_certificate(decoded, default_backend()).public_key()
+        except Exception:
+            pass
     except Exception:
         pass
 
+    # Try raw PEM string
     try:
-        cert = x509.load_pem_x509_certificate(
+        return x509.load_pem_x509_certificate(
             cert_str.encode("utf-8"),
             default_backend(),
-        )
-        return cert.public_key()
+        ).public_key()
     except Exception as e:
         raise ValueError(f"Błąd wczytywania certyfikatu: {e}")
 

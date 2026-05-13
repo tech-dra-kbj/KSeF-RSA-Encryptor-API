@@ -4,7 +4,7 @@ import logging
 
 from flask import Blueprint, Response, request
 
-from core.consume_service import decrypt_request, encrypt_response
+from core.consume_service import decrypt_request, dispatch, encrypt_response
 
 bp = Blueprint("consume", __name__)
 
@@ -33,23 +33,25 @@ def consume():
 
         try:
             result = decrypt_request(body)
-        except Exception as e:
+        except Exception as exc:
             return Response(
-                json.dumps({"error": f"Decrypt error: {str(e)}"}),
+                json.dumps({"error": f"Decrypt error: {str(exc)}"}),
                 status=400,
                 mimetype="application/json",
             )
 
-        plaintext = result["plaintext"]
+        try:
+            response_payload = dispatch(result["plaintext"])
+        except Exception as exc:
+            return Response(
+                json.dumps({"error": f"Dispatch error: {str(exc)}"}),
+                status=400,
+                mimetype="application/json",
+            )
 
-        # For now: echo decrypted payload.
-        # Later this will dispatch internal target, e.g. /encrypt.
-        response_payload = plaintext
+        reply_cert = body.get("reply_cert_pem_b64")
 
-        reply_pub = body.get("reply_public_key_pem_b64")
-
-        # If no reply key is provided, return plaintext for debug/testing.
-        if not reply_pub:
+        if not reply_cert:
             return Response(
                 json.dumps(
                     {
@@ -62,10 +64,10 @@ def consume():
             )
 
         try:
-            encrypted = encrypt_response(response_payload, reply_pub)
-        except Exception as e:
+            encrypted = encrypt_response(response_payload, reply_cert)
+        except Exception as exc:
             return Response(
-                json.dumps({"error": f"Encrypt response error: {str(e)}"}),
+                json.dumps({"error": f"Encrypt response error: {str(exc)}"}),
                 status=400,
                 mimetype="application/json",
             )
@@ -81,10 +83,10 @@ def consume():
             mimetype="application/json",
         )
 
-    except Exception as e:
+    except Exception as exc:
         logging.exception("consume error")
         return Response(
-            json.dumps({"error": str(e)}),
+            json.dumps({"error": str(exc)}),
             status=500,
             mimetype="application/json",
         )

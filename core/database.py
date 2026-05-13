@@ -26,12 +26,32 @@ def get_connection():
     return conn
 
 
+def _column_exists(conn, table_name: str, column_name: str) -> bool:
+    """
+    Check if a column exists in a SQLite table.
+    """
+    rows = conn.execute(f"PRAGMA table_info({table_name});").fetchall()
+    return any(row["name"] == column_name for row in rows)
+
+
+def _migrate_schema(conn):
+    """
+    Apply lightweight schema migrations.
+    """
+    if not _column_exists(conn, "keys", "public_cert_pem"):
+        conn.execute("""
+        ALTER TABLE keys
+        ADD COLUMN public_cert_pem BLOB;
+        """)
+
+
 def init_db():
     """
     Initialize the database:
     - Ensure directory exists
     - Enable WAL mode
     - Create required tables and indexes
+    - Apply lightweight migrations
     """
     ensure_instance_dir()
 
@@ -53,11 +73,14 @@ def init_db():
             kid TEXT NOT NULL,
             private_key_pem BLOB NOT NULL,
             public_key_pem BLOB NOT NULL,
+            public_cert_pem BLOB,
             created_at INTEGER NOT NULL,
             expires_at INTEGER NOT NULL,
             PRIMARY KEY (sid, kid)
         );
         """)
+
+        _migrate_schema(conn)
 
         # Index for faster lookups by SID
         conn.execute("""
