@@ -1,6 +1,6 @@
-# 🔐 KSeF RSA Encryptor API
+# KSeF Integration API
 
-REST API for cryptographic operations compliant with **KSeF** requirements.
+REST API do integracji z KSeF.
 
 The service is built with **Flask + Gunicorn**, provides documentation via **Swagger UI**, and supports full **CORS** (for direct testing from browsers).
 
@@ -23,7 +23,6 @@ The service is built with **Flask + Gunicorn**, provides documentation via **Swa
 - [OpenAPI Definition](#openapi-definition)
 - [Manual Tests](#manual-tests)
 - [Dependencies](#dependencies)
-- [Changelog](#-changelog)
 - [Author](#author)
 - [License](#-license)
 
@@ -270,7 +269,7 @@ curl -X POST "http://localhost:5000/generatePDF" \
 
 ## Run as a Linux Service (systemd)
 
-This example shows how to run the **KSeF RSA Encryptor API** as a systemd service on Linux.  
+This example shows how to run the **KSeF Integration API** as a systemd service on Linux.  
 The service starts automatically after a reboot and logs output to `/var/log`.
 
 ### ⚠️ Important (Node.js with nvm)
@@ -294,7 +293,7 @@ Example configuration (adjust paths and user):
 
 ```ini
 [Unit]
-Description=KSeF RSA Encryptor Flask Service
+Description=KSeF Integration API Flask Service
 After=network.target
 
 [Service]
@@ -333,7 +332,7 @@ Configuration (adjust paths and user):
 
 ```ini
 [Unit]
-Description=KSeF RSA Encryptor Gunicorn Service
+Description=KSeF Integration API Gunicorn Service
 After=network.target
 
 [Service]
@@ -429,54 +428,9 @@ Open:
 
 ---
 
-## 📜 CHANGELOG
-**KSeF RSA Encryptor API**
-
-_Automatically compiled from Git commit history._
-
----
-
-## [1.0.3] – 2025-10-17
-### Changed
-- Disabled **pretty print** in JSON responses to improve integration with external systems.
-- Adjusted JSON output formatting (compact mode) for cleaner API responses.
-
----
-
-## [1.0.2] – 2025-10-17
-### Fixed
-- Improved error handling and response consistency for `/encrypt` endpoint.
-
----
-
-## [1.0.1] – 2025-10-16
-### Added
-- Added **Swagger / OpenAPI** documentation (`swaggerapi.yaml`).
-- Added **project documentation** for external security audits (README, API specs, etc.).
-
----
-
-## [1.0.0] – 2025-10-15
-### Initial release
-- Implemented core RSA encryption API:
-  - `/encrypt` endpoint using RSAES-OAEP (MGF1 + SHA-256)
-  - `/health` endpoint for monitoring
-- Added input validation and structured JSON error codes.
-- Added Flask app structure with CORS and Swagger integration.
-- Added `Dockerfile` for containerized deployment.
-- Initial repository setup and dependency list (`requirements.txt`).
-
----
-
-### Author
-**Grzegorz Szawuła**  
-GitHub: https://github.com/zvgelo
-
----
-
 ## Author
 
-**Grzegorz Szawuła**
+**KBJ DRA**
 
 ---
 

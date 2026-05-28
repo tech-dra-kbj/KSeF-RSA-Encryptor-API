@@ -1,7 +1,36 @@
 # 📜 CHANGELOG
-**KSeF RSA Encryptor API**
+**KSeF Integration API**
 
-_Automatically compiled from Git commit history._
+---
+
+## [1.3.0] – 2026-05-28
+### Added
+- Added `/consume` endpoint for internal encryption flow using CMS (Cryptographic Message Syntax):
+  - Accepts session key and initialization vector encrypted with a stored internal key pair.
+  - Returns encrypted payload ready for KSeF token consumption.
+- Added internal key management system:
+  - Key pairs stored and managed in a local database.
+  - Endpoints for key provisioning and retrieval (`/internal_keys`).
+- Added database layer (`core/database.py`) for persistent key storage.
+
+### Changed
+- Refactored route structure — blueprints split by responsibility (`legacy_encrypt`, `sign_link`, `sign_xml`, `pdf`, `internal_keys`, `consume`).
+
+---
+
+## [1.2.0] – 2026-04-01
+### Added
+- Added `/generatePDF` endpoint for generating invoice PDF visualizations from KSeF XML:
+  - Supports FA(1), FA(2), FA(3), FA_RR invoice formats.
+  - Input: `xml_b64` (Base64-encoded XML).
+  - Response modes: `base64` (JSON with `pdf_b64`) or `binary` (`application/pdf`).
+  - Optional `additional_data` passthrough to the PDF generator (`nrKSeF`, `qrCode`, `qr2Code`, `isMobile`).
+- Added Node.js bridge (`pdf_generator_bridge.mjs`) for PDF generation runtime.
+
+### Changed
+- Renamed input field from `xml_content` to `xml_b64` for consistency with other endpoints.
+- Updated systemd service configuration to support Node.js installed via nvm (`KSEF_NODE_BIN`, `PATH` env vars).
+- Updated Swagger (`swaggerapi.yaml`) with full `/generatePDF` schema including curl examples.
 
 ---
 
@@ -67,5 +96,5 @@ _Automatically compiled from Git commit history._
 ---
 
 ### Author
-**Grzegorz Szawuła**  
-GitHub: [zvgelo](https://github.com/zvgelo)
+**KBJ DRA**  
+GitHub: [tech-dra-kbj](https://github.com/tech-dra-kbj)
