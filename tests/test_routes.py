@@ -33,7 +33,8 @@ def test_health(client):
 
     data = response.get_json()
     assert data["status"] == "ok"
-    assert data["service"] == "KSeF RSA Encryptor"
+    assert data["service"] == "KSeF Integration API"
+    assert data["version"] == "1.3.0"
 
 
 def test_index(client):
@@ -42,7 +43,7 @@ def test_index(client):
     assert response.status_code == 200
 
     data = response.get_json()
-    assert data["service"] == "KSeF RSA Encryptor 1.2.0"
+    assert data["service"] == "KSeF Integration API 1.3.0"
     assert data["docs"] == "/apidocs"
     assert data["health"] == "/health"
     assert data["generate_pdf"] == "/generatePDF"
