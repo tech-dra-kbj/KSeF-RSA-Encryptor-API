@@ -9,15 +9,17 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends nodejs npm \
+    && apt-get install -y --no-install-recommends curl ca-certificates \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY swaggerapi.yaml encrypt_service.py pdf_generator_bridge.mjs .
+COPY swaggerapi.yaml encrypt_service.py pdf_generator_bridge.mjs ./
 COPY pdf-generator/dist ./pdf-generator/dist
 
 EXPOSE ${PORT}
 
-CMD ["gunicorn", "--workers", "3", "--threads", "2", "--bind", "0.0.0.0:5000", "encrypt_service:app"]
+CMD ["sh", "-c", "gunicorn --workers ${WORKERS} --threads ${THREADS} --bind 0.0.0.0:${PORT} encrypt_service:app"]

@@ -1,16 +1,15 @@
 services:
   ksef-encryptor:
-    container_name: ksef-encryptor
     build:
       context: .
       dockerfile: Dockerfile
-    image: ksef-encryptor:local
-    ports:
-      - "5001:5000"
     environment:
       PORT: "5000"
       WORKERS: "3"
       THREADS: "2"
+      KSEF_NODE_BIN: "node"
+      KSEF_PDF_BRIDGE_PATH: "./pdf_generator_bridge.mjs"
+      KSEF_PDF_MODULE_PATH: "./pdf-generator/dist/ksef-fe-invoice-converter.js"
       KSEF_PDF_TIMEOUT_SECONDS: "60"
     healthcheck:
       test:

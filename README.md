@@ -374,19 +374,47 @@ sudo systemctl status ksef-encryptor.service
 
 ## Run in Docker
 
-### Build image
+### Docker Compose (recommended)
+
+Two environment profiles are available:
+
+**Development** (port `5001`, 2 workers):
 ```bash
-docker build -t ksef-encryptor .
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
 ```
 
-### Run container
+**Production** (port `5000`, 3 workers):
 ```bash
-docker run -p 5000:5000 ksef-encryptor
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 ```
 
-### Custom port and Gunicorn workers
+Stop:
 ```bash
-docker run -e PORT=8080 -e WORKERS=4 -e THREADS=2 -p 8080:8080 ksef-encryptor
+docker compose -f docker-compose.yml -f docker-compose.dev.yml down
+```
+
+### Environment variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `5000` | Internal container port |
+| `WORKERS` | `3` | Gunicorn worker processes |
+| `THREADS` | `2` | Threads per worker |
+| `KSEF_NODE_BIN` | `node` | Path to Node.js binary |
+| `KSEF_PDF_BRIDGE_PATH` | `./pdf_generator_bridge.mjs` | Path to Node.js PDF bridge |
+| `KSEF_PDF_MODULE_PATH` | `./pdf-generator/dist/ksef-fe-invoice-converter.js` | Path to PDF generator module |
+| `KSEF_PDF_TIMEOUT_SECONDS` | `60` | PDF generation timeout (seconds) |
+
+### Manual build and run
+
+```bash
+docker build -t ksef-integration-api .
+docker run -p 5000:5000 ksef-integration-api
+```
+
+Custom workers and port:
+```bash
+docker run -e PORT=8080 -e WORKERS=4 -e THREADS=2 -p 8080:8080 ksef-integration-api
 ```
 
 ---
