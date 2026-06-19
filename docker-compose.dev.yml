@@ -1,7 +1,7 @@
 services:
   ksef-encryptor:
     container_name: ksef-encryptor-dev
-    image: ksef-integration-api:dev
+    image: ksef-integration-api:latest
     ports:
       - "5001:5000"
     environment:
