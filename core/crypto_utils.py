@@ -33,11 +33,11 @@ def generate_self_signed_certificate(private_key) -> x509.Certificate:
         [
             x509.NameAttribute(NameOID.COUNTRY_NAME, "PL"),
             x509.NameAttribute(NameOID.ORGANIZATION_NAME, "KSeF Encrypt Service"),
-            x509.NameAttribute(NameOID.COMMON_NAME, "KSeF RSA Encryptor"),
+            x509.NameAttribute(NameOID.COMMON_NAME, "KSeF Integration API"),
         ]
     )
 
-    now = datetime.datetime.now(datetime.UTC)
+    now = datetime.datetime.now(datetime.timezone.utc)
 
     return (
         x509.CertificateBuilder()
