@@ -24,4 +24,4 @@ COPY pdf-generator/dist ./pdf-generator/dist
 
 EXPOSE ${PORT}
 
-CMD ["sh", "-c", "gunicorn --workers ${WORKERS} --threads ${THREADS} --bind 0.0.0.0:${PORT} encrypt_service:app"]
+CMD ["sh", "-c", "gunicorn --workers ${WORKERS} --threads ${THREADS} --preload --bind 0.0.0.0:${PORT} encrypt_service:app"]
