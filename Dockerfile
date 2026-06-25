@@ -18,6 +18,8 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY swaggerapi.yaml encrypt_service.py pdf_generator_bridge.mjs ./
+COPY core/ ./core/
+COPY routes/ ./routes/
 COPY pdf-generator/dist ./pdf-generator/dist
 
 EXPOSE ${PORT}
