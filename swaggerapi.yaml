@@ -1,8 +1,8 @@
 swagger: "2.0"
 info:
-  title: KSeF RSA Encryptor API
+  title: KSeF Integration API
   description: |
-    API do operacji kryptograficznych używanych w integracji z KSeF:
+    REST API do integracji z KSeF.
 
     1) **/encrypt** – szyfrowanie RSAES-OAEP (MGF1 + SHA-256) zgodne z KSeF (np. klucz AES, token|timestamp) przy użyciu klucza publicznego z certyfikatu.
     2) **/sign_link** – podpisywanie linku weryfikacyjnego KOD II dla trybu offline (RSA-PSS lub ECDSA P-256) i zwrot gotowego URL.
@@ -10,10 +10,10 @@ info:
     4) **/generatePDF** – generowanie wizualizacji faktury PDF na podstawie XML (odpowiedź jako Base64 albo `application/pdf`).
 
     Wszystkie wejścia/wyjścia binarne są przekazywane jako Base64 w JSON.
-  version: "1.2.0"
+  version: "1.3.0"
   contact:
-    name: Grzegorz
-    url: https://github.com/zvgelo
+    name: KBJ DRA
+    url: https://github.com/tech-dra-kbj
 
 host: localhost:5000
 basePath: /
@@ -422,7 +422,10 @@ paths:
                 example: "ok"
               service:
                 type: string
-                example: "KSeF RSA Encryptor"
+                example: "KSeF Integration API"
+              version:
+                type: string
+                example: "1.3.0"
 
   /:
     get:
@@ -439,7 +442,7 @@ paths:
             properties:
               service:
                 type: string
-                example: "KSeF RSA Encryptor 1.2.0"
+                example: "KSeF Integration API 1.3.0"
               docs:
                 type: string
                 example: "/apidocs"
