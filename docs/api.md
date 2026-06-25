@@ -11,7 +11,7 @@ Returns service metadata and available endpoints.
 **Response:**
 ```json
 {
-  "service": "KSeF Integration API 1.3.0",
+  "service": "KSeF Integration API 1.3.1",
   "docs": "/apidocs",
   "health": "/health",
   "generate_pdf": "/generatePDF"
@@ -29,7 +29,7 @@ Health check for monitoring and container probes.
 {
   "status": "ok",
   "service": "KSeF Integration API",
-  "version": "1.3.0"
+  "version": "1.3.1"
 }
 ```
 
@@ -124,12 +124,28 @@ Renders an invoice PDF from XML using the Node.js bridge.
   "xml_b64": "PEF1dGhUb2tlblJlcXVlc3Q+Li4u",
   "response_type": "base64",
   "additional_data": {
-    "nrKSeF": "20260101-1234567890-ABCDEF1234567890",
-    "qrCode": "https://...",
-    "isMobile": false
+    "nr_ksef": "20260101-1234567890-ABCDEF1234567890",
+    "qr_code": "https://...",
+    "qr2_code": "https://...",
+    "is_mobile": false,
+    "watermark": "KOPIA",
+    "language": "pl"
   }
 }
 ```
+
+| Field | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `xml_b64` | string | **yes** | — | Invoice XML encoded as Base64 |
+| `response_type` | string | no | `base64` | `base64` — JSON with `pdf_b64`, `binary` — raw PDF |
+| `additional_data.nr_ksef` | string | no | — | KSeF number printed on the PDF |
+| `additional_data.qr_code` | string | no | — | QR code URL |
+| `additional_data.qr2_code` | string | no | — | Second QR code URL |
+| `additional_data.is_mobile` | bool | no | — | Mobile layout variant |
+| `additional_data.watermark` | string | no | — | Watermark text on every page (e.g. `KOPIA`, `ANULOWANA`) |
+| `additional_data.language` | string | no | `pl` | PDF label language: `pl` or `en` (case-insensitive). See note below. |
+
+> **Note:** English (`language: en`) is a **test feature**. Official English translations of KSeF invoice field labels are not available — the current EN translation was generated with GPT and is provided for testing purposes only.
 
 `response_type`: `base64` (default) or `binary`
 

@@ -21,5 +21,6 @@ export interface AdditionalDataTypes {
     qrCode?: string;
     qr2Code?: string;
     isMobile?: boolean;
+    watermark?: string;
 }
 export {};

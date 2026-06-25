@@ -8,11 +8,12 @@ export declare function formatText(value: number | string | undefined | null, fo
 export declare function generateTable<T>(array: T[], keys: Partial<Record<keyof T, string>>): Content;
 export declare function normalizeCurrencySeparator(value: string | number | undefined): string;
 export declare function replaceDotWithCommaIfNeeded(value: string | number | undefined): string;
-export declare function hasValue(value: FP | string | number | undefined): boolean;
+export declare function hasValue(value: FP | string | number | undefined, zeroValidator?: boolean): boolean;
 export declare function getValue(value: FP | string | number | undefined): string | number | undefined;
 export declare function getNumber(value: FP | string | number | undefined): number;
 export declare function getNumberRounded(value: FP | string | number | undefined): number;
 export declare function createLabelTextArray(data: CreateLabelTextData[]): Content[];
+export declare function addThousandSeparator(value: string, thousandSeparator?: string, decimalSeparator?: string): string;
 export declare function createLabelText(label: string, value: FP | string | number | undefined | null, formatTyp?: FormatTyp | FormatTyp[], style?: Style): Content[];
 export declare function createSection(content: Content[], isLineOnTop: boolean, margin?: Margins): Content[];
 export declare function createHeader(text: string, margin?: Margins): Content[];
@@ -26,7 +27,7 @@ export declare function getContentTable<T>(headers: HeaderDefine[], data: T[], d
     content: ContentTable | null;
     fieldsWithValue: string[];
 };
-export declare function generateTwoColumns(kol1: Column, kol2: Column, margin?: Margins): Content;
+export declare function generateTwoColumns(kol1: Column, kol2: Column, margin?: Margins, unbreakable?: boolean): Content;
 export declare function generateColumns(contents: Content[][], style?: Style | undefined): Content;
 export declare function generateQRCode(qrCode?: string): ContentQr | undefined;
 export declare function verticalSpacing(height: number): ContentText;
@@ -34,3 +35,4 @@ export declare function getKraj(code: string): string;
 export declare function getTStawkaPodatku(code: string, version: 1 | 2 | 3 | 'RR', P_PMarzy?: string): string;
 export declare function generateLine(): Content;
 export declare function makeBreakable(value: string | number | undefined, wordBreak?: number): string | number | undefined;
+export declare function formatBankAccountNumber(number: string): string;

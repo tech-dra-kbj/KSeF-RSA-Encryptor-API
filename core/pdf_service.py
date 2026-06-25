@@ -3,7 +3,10 @@ import os
 import subprocess
 
 
-def run_pdf_generator(xml_content: str, additional_data: dict) -> str:
+SUPPORTED_LANGUAGES = {"pl", "en"}
+
+
+def run_pdf_generator(xml_content: str, additional_data: dict, language: str = "pl") -> str:
     node_bin = os.getenv("KSEF_NODE_BIN", "node")
     bridge_path = os.getenv(
         "KSEF_PDF_BRIDGE_PATH",
@@ -18,6 +21,7 @@ def run_pdf_generator(xml_content: str, additional_data: dict) -> str:
         {
             "xmlContent": xml_content,
             "additionalData": additional_data,
+            "language": language,
         },
         separators=(",", ":"),
     )
@@ -90,5 +94,9 @@ def normalize_pdf_additional_data(additional_data) -> dict:
             }
         else:
             normalized["isMobile"] = bool(is_mobile)
+
+    watermark = additional_data.get("watermark")
+    if watermark is not None:
+        normalized["watermark"] = str(watermark)
 
     return normalized

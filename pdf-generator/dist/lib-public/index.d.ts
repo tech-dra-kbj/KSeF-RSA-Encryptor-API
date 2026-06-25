@@ -1,4 +1,3 @@
-import { generateInvoice } from './generate-invoice';
-import { generateInvoiceFromXml } from './generate-invoice-from-xml';
-import { generatePDFUPO } from './UPO-generator';
-export { generateInvoice, generateInvoiceFromXml, generatePDFUPO };
+export { generateInvoice } from './generate-invoice';
+export { generatePDFUPO } from './UPO-generator';
+export { i18nReady } from './i18n/i18n-init';

@@ -7,7 +7,7 @@ bp = Blueprint("misc", __name__)
 
 @bp.route("/health", methods=["GET"])
 def health():
-    body = {"status": "ok", "service": "KSeF Integration API", "version": "1.3.0"}
+    body = {"status": "ok", "service": "KSeF Integration API", "version": "1.3.1"}
     return Response(
         json.dumps(body, separators=(",", ":")),
         mimetype="application/json",
@@ -17,7 +17,7 @@ def health():
 @bp.route("/", methods=["GET"])
 def index():
     body = {
-        "service": "KSeF Integration API 1.3.0",
+        "service": "KSeF Integration API 1.3.1",
         "docs": "/apidocs",
         "health": "/health",
         "generate_pdf": "/generatePDF",

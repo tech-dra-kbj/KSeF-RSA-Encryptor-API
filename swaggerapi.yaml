@@ -12,7 +12,7 @@ info:
     6) **/consume** – Secure encrypted RPC tunnel (CMS + AES-256-CBC).
 
     All binary inputs and outputs are passed as Base64-encoded strings in JSON.
-  version: "1.3.0"
+  version: "1.3.1"
   contact:
     name: KBJ DRA
     url: https://github.com/tech-dra-kbj
@@ -302,6 +302,10 @@ paths:
         - Default response: JSON with `pdf_b64`
         - For `response_type = binary`: returns raw `application/pdf`
 
+        > **Note:** English (`language: en`) is a test feature. Official English translations
+        > of KSeF invoice field labels are not available — the current EN translation was
+        > generated with GPT and is provided for testing purposes only.
+
         Example (curl + jq — recommended):
 
                 curl -X POST http://localhost:5000/generatePDF \
@@ -355,12 +359,34 @@ paths:
               additional_data:
                 type: object
                 description: Optional data passed through to the PDF generator.
-                additionalProperties: true
-                example:
-                  nrKSeF: "20260101-1234567890-ABCDEF1234567890"
-                  qrCode: "https://example.com/qr"
-                  qr2Code: "https://example.com/qr2"
-                  isMobile: false
+                properties:
+                  nr_ksef:
+                    type: string
+                    description: KSeF invoice number printed on the PDF.
+                    example: "20260101-1234567890-ABCDEF1234567890"
+                  qr_code:
+                    type: string
+                    description: QR code URL.
+                    example: "https://ksef.mf.gov.pl/..."
+                  qr2_code:
+                    type: string
+                    description: Second QR code URL.
+                  is_mobile:
+                    type: boolean
+                    description: Mobile layout variant.
+                    default: false
+                  watermark:
+                    type: string
+                    description: Watermark text printed on every page (e.g. "KOPIA", "ANULOWANA").
+                    example: "KOPIA"
+                  language:
+                    type: string
+                    description: PDF label language. Case-insensitive.
+                    enum:
+                      - pl
+                      - en
+                    default: pl
+                    example: pl
       responses:
         200:
           description: PDF generated successfully
@@ -414,7 +440,7 @@ paths:
                 example: "KSeF Integration API"
               version:
                 type: string
-                example: "1.3.0"
+                example: "1.3.1"
 
   /get_pub_cert:
     post:
@@ -559,7 +585,7 @@ paths:
             properties:
               service:
                 type: string
-                example: "KSeF Integration API 1.3.0"
+                example: "KSeF Integration API 1.3.1"
               docs:
                 type: string
                 example: "/apidocs"

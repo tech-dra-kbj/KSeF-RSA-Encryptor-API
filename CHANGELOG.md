@@ -4,6 +4,16 @@ All notable changes to the KSeF Integration API project will be documented in th
 
 ---
 
+## [1.3.1] - 2026-06-25 _(pending full test)_
+
+### Changed
+- Updated PDF generator to v1.1.19 (`ksef-fe-invoice-converter`).
+- Updated `pdf_generator_bridge.mjs`: replaced removed `generateInvoiceFromXml` with `generateInvoice` + `FileReader` polyfill for Node.js compatibility; redirected module console output to stderr.
+- Added `additional_data.watermark` — optional watermark text printed on every page of the generated PDF.
+- Added `additional_data.language` — PDF label language (`pl` / `en`, default `pl`, case-insensitive).
+
+---
+
 ## [1.3.0] - 2026-06-25
 
 ### Added

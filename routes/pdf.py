@@ -46,6 +46,15 @@ def generate_pdf():
                 mimetype="application/json",
             )
 
+        language = (additional_data.get("language") or "pl").lower()
+
+        if language not in {"pl", "en"}:
+            return Response(
+                json.dumps({"error": "additional_data.language must be 'pl' or 'en'."}),
+                status=400,
+                mimetype="application/json",
+            )
+
         try:
             xml_bytes = base64.b64decode(xml_b64, validate=True)
         except Exception as exc:
@@ -65,7 +74,7 @@ def generate_pdf():
             )
 
         additional_data_mapped = normalize_pdf_additional_data(additional_data)
-        pdf_b64 = run_pdf_generator(xml_content, additional_data_mapped)
+        pdf_b64 = run_pdf_generator(xml_content, additional_data_mapped, language)
 
         if response_type == "binary":
             try:
