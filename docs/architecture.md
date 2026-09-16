@@ -97,7 +97,23 @@ grep -c ExampleText pdf-generator/dist/ksef-fe-invoice-converter.js
 
 If upstream adds translation keys, reconcile them into `pdf-generator/i18n/en.json` rather
 than taking the upstream file: a key missing from our file makes i18next fall back to
-printing the key itself.
+printing the key itself. Upstream `pl.json` is the authoritative key set — it is a strict
+superset of `en.json`, whose key names also carry typos (`taxInclusiveAmount ` with a
+trailing space, `registration.Identifier` capitalised). List what needs translating with:
+
+```bash
+python3 - <<'EOF'
+import json
+def flat(o, p=''):
+    for k, v in o.items():
+        n = f'{p}.{k}' if p else k
+        yield from flat(v, n) if isinstance(v, dict) else [(n, v)]
+ours = dict(flat(json.load(open('pdf-generator/i18n/en.json'))))
+theirs = dict(flat(json.load(open('ksef-pdf-generator/src/lib-public/i18n/lang/pl.json'))))
+for k in sorted(set(theirs) - set(ours)):
+    print(k, '|', theirs[k])
+EOF
+```
 
 ## Cryptographic Specifications
 

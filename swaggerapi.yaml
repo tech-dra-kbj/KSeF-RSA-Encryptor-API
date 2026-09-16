@@ -12,7 +12,7 @@ info:
     6) **/consume** – Secure encrypted RPC tunnel (CMS + AES-256-CBC).
 
     All binary inputs and outputs are passed as Base64-encoded strings in JSON.
-  version: "1.3.2"
+  version: "1.3.3"
   contact:
     name: KBJ DRA
     url: https://github.com/tech-dra-kbj
@@ -437,7 +437,7 @@ paths:
                 example: "KSeF Integration API"
               version:
                 type: string
-                example: "1.3.2"
+                example: "1.3.3"
 
   /get_pub_cert:
     post:
@@ -620,7 +620,7 @@ paths:
             properties:
               service:
                 type: string
-                example: "KSeF Integration API 1.3.2"
+                example: "KSeF Integration API 1.3.3"
               docs:
                 type: string
                 example: "/apidocs"

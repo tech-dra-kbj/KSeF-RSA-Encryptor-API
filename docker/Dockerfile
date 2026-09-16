@@ -8,10 +8,19 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apt-get update \
+# Node stays — the PDF generator bridge runs on it. curl does not: it is only
+# needed here to fetch the NodeSource setup script, so it is purged together
+# with libcurl once Node is installed. Nothing in the running image links
+# libcurl (it is an rdepend of curl alone) and the healthcheck goes through
+# Python's urllib, so keeping curl would only add scan surface. apt-get
+# upgrade picks up security updates published after the base image was cut.
+RUN set -eux \
+    && apt-get update \
     && apt-get install -y --no-install-recommends curl ca-certificates \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
+    && apt-get upgrade -y \
+    && apt-get purge -y --auto-remove curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .

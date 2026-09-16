@@ -1,4 +1,4 @@
-import { default as FormatTyp } from '../enums/common.enum';
+import { default as FormatTyp, Position } from '../enums/common.enum';
 export interface PdfTableData {
     widths?: string[];
     body: PdfFields[][];
@@ -27,6 +27,7 @@ export interface PdfOptionField {
     italics?: boolean;
     margin?: [left: number, top: number, right: number, bottom: number];
     rowSpan?: number;
+    verticalAlignment?: 'middle' | 'top' | 'bottom';
 }
 export interface PdfOptionFields extends PdfOptionField {
     image?: string;
@@ -42,6 +43,7 @@ export interface HeaderDefine {
     format: FormatTyp;
     width?: string;
     mappingData?: Record<string, string>;
+    position?: Position;
 }
 export interface PdfFP {
     _text?: string;

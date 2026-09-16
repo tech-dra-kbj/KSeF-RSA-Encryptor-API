@@ -18,6 +18,7 @@ export declare enum FormatTyp {
     Default = "Default",
     Description = "Description",
     GrayBoldTitle = "GrayBoldTitle",
+    GreyTitle = "GreyTitle",
     Label = "Label",
     LabelMedium = "LabelMedium",
     LabelMargin = "LabelMargin",
@@ -47,6 +48,8 @@ export declare enum FormatTyp {
     PEFSubHeaderContent = "PEFSubHeaderContent",
     PEFValue = "PEFValue",
     PEFInlineLabel = "PEFInlineLabel",
-    PEFTitle = "PEFTitle"
+    PEFTitle = "PEFTitle",
+    Left = "Left",
+    BoldDefault = "BoldDefault"
 }
 export default FormatTyp;
