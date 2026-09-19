@@ -4,6 +4,24 @@ All notable changes to the KSeF Integration API project will be documented in th
 
 ---
 
+## [1.4.0] - 2026-09-19
+
+### Changed
+- **`/generatePDF` error contract (breaking).** Errors now return `{"status": "error", "code": <int>, "message": "<text>"}`, the envelope `/encrypt` already used, with `error` kept as a deprecated alias of `message` so existing callers keep working. Failures caused by the payload — XML that is empty, not well-formed, or not a recognised KSeF invoice — return **400** instead of 500, so a consumer can tell "fix the request" from "try again later" by status class alone. Generator timeouts return **504**. A generator failure whose message is not recognised deliberately stays a 500: blaming an unrecognised fault on the caller would make them stop retrying something a retry could clear. Codes: 21xx request validation, 22xx XML payload, 23xx service faults, mirroring the 1xx block `/encrypt` uses, with `x99` reserved for "unexpected". Documented in `swaggerapi.yaml` under the `PdfError` definition.
+
+### Added
+- `docker/build-image.sh` now builds and exports the TLS proxy alongside the application. It previously built only `ksef-integration-api`, so the documented update procedure would have refreshed the application and left the old `ksef-ssl-proxy` running — including the outdated curl that prompted the 1.3.3 rebuild. Both builds pass `--pull`, since the proxy fix comes from a current nginx-alpine base and a cached one silently reinstates the packages it moved off.
+- Every numeric error code the service can return is now documented, in `docs/api.md` and in `swaggerapi.yaml`. `/encrypt` had returned codes `101`-`104` and `199` since before this changelog without them appearing in any document. `docs/api.md` also gains an **Error codes** overview naming the block each endpoint owns, and stating that `/sign_xml`, `/sign_link`, `/get_pub_cert` and `/consume` carry no code yet, so callers branch on HTTP status there.
+- A test that fails when a code exists in `routes/` or `core/pdf_errors.py` but appears in neither document, so the two cannot drift apart again.
+
+### Fixed
+- **Base64 input was handled two different wrong ways, and both are now one correct way.** `/encrypt`, `/sign_xml` and `/sign_link` used the bare `base64.b64decode`, whose default **silently discards** characters outside the Base64 alphabet: a corrupted payload decoded to a shorter one, or to nothing, and the request still succeeded. `/encrypt` would return 200 having encrypted zero bytes, so a caller whose token was mangled in transit believed it had been protected. Meanwhile `/generatePDF` validated strictly and therefore rejected **line-wrapped** Base64, which ABAP, OpenSSL and anything that has been through PEM emit as a matter of course. Both paths now go through `core/b64.py`, which strips whitespace and then validates, accepting wrapped input and refusing genuine garbage. A test fails the build if any route reintroduces a loose `b64decode`.
+- `/sign_link` returned 500 for an undecodable `link_b64`; it is the caller's mistake and now returns 400.
+- `docs/operations.md` never mentioned the TLS proxy, although it has shipped since 1.3.2 — updates, log inspection and rollback all skipped it. The proxy is now covered in every section, and the document warns that mixing `-p` with the project name set in `docker-compose.yml` produces duplicate stacks.
+- `docs/faq.md` described a `/generatePDF` error message, "Unsupported invoice version: unknown", that this generator does not emit; the real one is `Unknown XML Version: undefined`, and it now returns 400 with code `2202`. Sample responses in `docs/api.md`, `docs/faq.md` and `docs/operations.md` still reported version 1.3.2.
+
+---
+
 ## [1.3.3] - 2026-09-16
 
 ### Security
@@ -176,7 +194,7 @@ heading were never part of the published v1.3.1 and have been moved to 1.3.2.
   - `/health` endpoint for monitoring.
 - Added input validation and structured JSON error codes.
 - Added Flask app structure with CORS and Swagger integration.
-- Added [Dockerfile](Dockerfile) for containerized deployment.
+- Added [Dockerfile](docker/Dockerfile) for containerized deployment.
 - Initial repository setup and dependency list [requirements.txt](requirements.txt).
 
 ---

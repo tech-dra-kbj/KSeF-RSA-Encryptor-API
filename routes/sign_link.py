@@ -3,6 +3,7 @@ import json
 import logging
 from urllib.parse import urlparse, urlunparse
 
+from core.b64 import Base64Error, decode_b64
 from flask import Blueprint, Response, request
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes
@@ -38,7 +39,7 @@ def sign_link():
         password_bytes = None
         if key_password_b64:
             try:
-                password_bytes = base64.b64decode(key_password_b64)
+                password_bytes = decode_b64(key_password_b64, "key_password_b64")
             except Exception as e:
                 return Response(
                     json.dumps({"error": f"Błąd Base64 w key_password_b64: {e}"}),
@@ -48,7 +49,17 @@ def sign_link():
         elif key_password_plain:
             password_bytes = key_password_plain.encode("utf-8")
 
-        link_str = base64.b64decode(link_b64).decode("utf-8").strip()
+        try:
+            link_str = decode_b64(link_b64, "link_b64").decode("utf-8").strip()
+        except Exception as e:
+            # A bad link_b64 is the caller's mistake, so it must not fall through to
+            # the 500 handler at the bottom of this function.
+            return Response(
+                json.dumps({"error": str(e)}),
+                status=400,
+                mimetype="application/json",
+            )
+
         link_str = link_str.rstrip("/")
 
         parse_input = link_str
@@ -81,7 +92,7 @@ def sign_link():
         data_to_sign = string_to_sign.encode("utf-8")
 
         try:
-            cert_pem_bytes = base64.b64decode(cert_pem_b64)
+            cert_pem_bytes = decode_b64(cert_pem_b64, "cert_pem_b64")
             cert_obj = x509.load_pem_x509_certificate(cert_pem_bytes)
         except Exception as e:
             return Response(
@@ -91,7 +102,7 @@ def sign_link():
             )
 
         try:
-            key_pem_bytes = base64.b64decode(key_pem_b64)
+            key_pem_bytes = decode_b64(key_pem_b64, "key_pem_b64")
             private_key = load_pem_private_key(
                 key_pem_bytes,
                 password=password_bytes,

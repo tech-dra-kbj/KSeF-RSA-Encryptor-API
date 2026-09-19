@@ -2,6 +2,7 @@ import base64
 import json
 import logging
 
+from core.b64 import Base64Error, decode_b64
 from flask import Blueprint, Response, request
 from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
@@ -32,7 +33,7 @@ def sign_xml():
             )
 
         try:
-            xml_bytes = base64.b64decode(xml_b64)
+            xml_bytes = decode_b64(xml_b64, "xml_b64")
         except Exception as e:
             return Response(
                 json.dumps({"error": f"Błąd Base64 w xml_b64: {e}"}),
@@ -41,7 +42,7 @@ def sign_xml():
             )
 
         try:
-            cert_pem_bytes = base64.b64decode(cert_pem_b64)
+            cert_pem_bytes = decode_b64(cert_pem_b64, "cert_pem_b64")
             cert_obj = x509.load_pem_x509_certificate(cert_pem_bytes)
             cert_pem_str = cert_obj.public_bytes(Encoding.PEM).decode("utf-8")
         except Exception as e:
@@ -54,7 +55,7 @@ def sign_xml():
         password_bytes = None
         if key_password_b64:
             try:
-                password_bytes = base64.b64decode(key_password_b64)
+                password_bytes = decode_b64(key_password_b64, "key_password_b64")
             except Exception as e:
                 return Response(
                     json.dumps({"error": f"Błąd Base64 w key_password_b64: {e}"}),
@@ -63,7 +64,7 @@ def sign_xml():
                 )
 
         try:
-            key_pem_bytes = base64.b64decode(key_pem_b64)
+            key_pem_bytes = decode_b64(key_pem_b64, "key_pem_b64")
             key = load_pem_private_key(
                 key_pem_bytes,
                 password=password_bytes,

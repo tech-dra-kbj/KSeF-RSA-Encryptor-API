@@ -1,6 +1,7 @@
 import base64
 import json
 
+from core.b64 import Base64Error, decode_b64
 from flask import Blueprint, Response, request
 
 from core.ksef_encrypt import encrypt_rsa_oaep, load_ksef_public_key_from_string
@@ -25,8 +26,8 @@ def encrypt_endpoint():
             )
 
         try:
-            data = base64.b64decode(data_b64)
-        except Exception as e:
+            data = decode_b64(data_b64, "data_b64")
+        except Base64Error as e:
             body = {"status": "error", "code": 102, "message": f"Błąd Base64: {e}"}
             return Response(
                 json.dumps(body, separators=(",", ":")),

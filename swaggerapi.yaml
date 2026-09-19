@@ -12,7 +12,7 @@ info:
     6) **/consume** – Secure encrypted RPC tunnel (CMS + AES-256-CBC).
 
     All binary inputs and outputs are passed as Base64-encoded strings in JSON.
-  version: "1.3.3"
+  version: "1.4.0"
   contact:
     name: KBJ DRA
     url: https://github.com/tech-dra-kbj
@@ -77,9 +77,18 @@ paths:
                 type: string
                 example: "bW9ja19lbmNyeXB0ZWRfYnl0ZXM="
         400:
-          description: Input validation error
+          description: |
+            The caller must change the request; retrying it unchanged will fail again.
+
+            * `101` - `data_b64` or `cert_b64` missing or empty
+            * `102` - `data_b64` is not valid Base64
+            * `103` - `cert_b64` could not be read as a certificate or public key
           schema:
             type: object
+            required:
+              - status
+              - code
+              - message
             properties:
               status:
                 type: string
@@ -91,7 +100,11 @@ paths:
                 type: string
                 example: "Missing required fields"
         500:
-          description: Internal server error
+          description: |
+            The service could not complete the request. Retrying may succeed.
+
+            * `104` - RSAES-OAEP encryption failed
+            * `199` - unexpected error
           schema:
             type: object
             properties:
@@ -397,21 +410,46 @@ paths:
                 type: string
                 example: "JVBERi0xLjQKJcTl8uXr..."
         400:
-          description: Input validation error
+          description: |
+            The caller must change the request; retrying it unchanged will fail again.
+
+            Request validation (21xx):
+
+            * `2100` – body is not a JSON object
+            * `2101` – body is not valid JSON
+            * `2102` – `xml_b64` missing, empty, or not a string
+            * `2103` – `xml_b64` is not valid Base64
+            * `2104` – decoded bytes are not UTF-8 text
+            * `2105` – `response_type` is neither `base64` nor `binary`
+            * `2106` – `additional_data` is not an object
+            * `2107` – `additional_data.language` is neither `pl` nor `en`
+
+            XML payload (22xx):
+
+            * `2200` – decoded content holds no XML
+            * `2201` – XML is not well-formed
+            * `2202` – XML is not a recognised KSeF invoice document
           schema:
-            type: object
-            properties:
-              error:
-                type: string
-                example: "Required: 'xml_b64' (Base64-encoded XML)."
+            $ref: '#/definitions/PdfError'
         500:
-          description: PDF generator error
+          description: |
+            The service could not complete the request. Retrying may succeed.
+
+            * `2301` – Node.js runtime unavailable
+            * `2302` – generator returned an unreadable response
+            * `2303` – generator returned empty output
+            * `2399` – unexpected error, including generator failures that could not
+              be attributed to the payload
           schema:
-            type: object
-            properties:
-              error:
-                type: string
-                example: "PDF generator failed: ..."
+            $ref: '#/definitions/PdfError'
+        504:
+          description: |
+            Generation exceeded `KSEF_PDF_TIMEOUT_SECONDS` (60 s by default).
+            Safe to retry.
+
+            * `2300` – generator timeout
+          schema:
+            $ref: '#/definitions/PdfError'
 
   /health:
     get:
@@ -437,7 +475,7 @@ paths:
                 example: "KSeF Integration API"
               version:
                 type: string
-                example: "1.3.3"
+                example: "1.4.0"
 
   /get_pub_cert:
     post:
@@ -620,10 +658,36 @@ paths:
             properties:
               service:
                 type: string
-                example: "KSeF Integration API 1.3.3"
+                example: "KSeF Integration API 1.4.0"
               docs:
                 type: string
                 example: "/apidocs"
               health:
                 type: string
                 example: "/health"
+
+definitions:
+  PdfError:
+    type: object
+    required:
+      - status
+      - code
+      - message
+    properties:
+      status:
+        type: string
+        example: "error"
+      code:
+        type: integer
+        description: |
+          Stable numeric cause. The HTTP status says whether to retry; this says why,
+          so callers never have to parse `message`. 21xx and 22xx are the caller's
+          fault, 23xx is the service's. Codes are never reused.
+        example: 2202
+      message:
+        type: string
+        example: "XML is not a recognised KSeF invoice document: Unknown XML Version: undefined"
+      error:
+        type: string
+        description: Deprecated alias of `message`, kept for callers written against the previous contract.
+        example: "XML is not a recognised KSeF invoice document: Unknown XML Version: undefined"

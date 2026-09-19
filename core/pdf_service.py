@@ -2,6 +2,15 @@ import json
 import os
 import subprocess
 
+from core.pdf_errors import (
+    GENERATOR_BAD_RESPONSE,
+    GENERATOR_EMPTY_OUTPUT,
+    GENERATOR_TIMEOUT,
+    GENERATOR_UNAVAILABLE,
+    PdfServiceError,
+    classify_generator_failure,
+)
+
 
 SUPPORTED_LANGUAGES = {"pl", "en"}
 
@@ -54,21 +63,30 @@ def run_pdf_generator(xml_content: str, additional_data: dict, language: str = "
             check=False,
         )
     except FileNotFoundError as exc:
-        raise RuntimeError("Node.js executable not found. Set KSEF_NODE_BIN or install node.") from exc
+        raise PdfServiceError(
+            GENERATOR_UNAVAILABLE,
+            "Node.js executable not found. Set KSEF_NODE_BIN or install node.",
+        ) from exc
     except subprocess.TimeoutExpired as exc:
-        raise RuntimeError("PDF generator timeout") from exc
+        # 504 rather than 500: the work may well succeed on a retry, and the caller
+        # needs that apart from the faults that will fail again the same way.
+        raise PdfServiceError(
+            GENERATOR_TIMEOUT,
+            f"PDF generator did not finish within {timeout_seconds:g} s.",
+            status=504,
+        ) from exc
 
     if process.returncode != 0:
-        raise RuntimeError(f"PDF generator failed: {_extract_bridge_error(process.stderr)}")
+        raise classify_generator_failure(_extract_bridge_error(process.stderr))
 
     try:
         output_data = json.loads(process.stdout or "{}")
     except json.JSONDecodeError as exc:
-        raise RuntimeError("Invalid PDF generator response") from exc
+        raise PdfServiceError(GENERATOR_BAD_RESPONSE, "Invalid PDF generator response.") from exc
 
     pdf_b64 = output_data.get("base64")
     if not isinstance(pdf_b64, str) or not pdf_b64:
-        raise RuntimeError("PDF generator returned empty output")
+        raise PdfServiceError(GENERATOR_EMPTY_OUTPUT, "PDF generator returned empty output.")
 
     return pdf_b64
 

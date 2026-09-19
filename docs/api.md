@@ -4,6 +4,44 @@ Interactive documentation: `http://localhost:5000/apidocs`
 
 ---
 
+## Base64 fields
+
+Every `*_b64` field is decoded the same way across all endpoints:
+
+- **Line wrapping is accepted.** Whitespace, `\n` and `\r\n` are stripped before
+  decoding, so Base64 wrapped at 64 or 76 characters — what ABAP, OpenSSL and anything
+  that has passed through PEM produce — works unchanged.
+- **Anything else is rejected.** A character outside the Base64 alphabet fails the
+  request instead of being silently dropped, so a payload corrupted in transit can
+  never be encrypted or signed as a shorter — or empty — value.
+
+---
+
+## Error codes
+
+Endpoints that return a numeric `code` use one envelope:
+
+```json
+{"status": "error", "code": 2202, "message": "..."}
+```
+
+**Decide whether to retry from the HTTP status, not the code.** `4xx` means the request
+must change and will fail again unchanged; `5xx` is worth retrying. The `code` exists so
+a caller can report *why* without parsing prose. Codes are never reused, and each
+endpoint owns a numeric block whose `x99` is reserved for "unexpected".
+
+| Block | Endpoint | Documented under |
+|---|---|---|
+| `1xx` | `/encrypt` | [`POST /encrypt`](#post-encrypt) |
+| `21xx` – `23xx` | `/generatePDF` | [`POST /generatePDF`](#post-generatepdf) |
+
+Endpoints not listed above — `/sign_xml`, `/sign_link`, `/get_pub_cert`, `/consume` —
+do not carry a `code` yet. They return `{"error": "<message>"}` with an appropriate HTTP
+status, so branch on the status and treat the message as human-readable only. Blocks
+`3xx` and up are unallocated and reserved for them.
+
+---
+
 ## `GET /`
 
 Returns service metadata and available endpoints.
@@ -11,7 +49,7 @@ Returns service metadata and available endpoints.
 **Response:**
 ```json
 {
-  "service": "KSeF Integration API 1.3.2",
+  "service": "KSeF Integration API 1.4.0",
   "docs": "/apidocs",
   "health": "/health",
   "generate_pdf": "/generatePDF"
@@ -29,7 +67,7 @@ Health check for monitoring and container probes.
 {
   "status": "ok",
   "service": "KSeF Integration API",
-  "version": "1.3.2"
+  "version": "1.4.0"
 }
 ```
 
@@ -54,6 +92,21 @@ Encrypts a payload using **RSAES-OAEP (MGF1 + SHA-256)** with the public key fro
   "encrypted_b64": "eGlkY2FlYmQ5Mm..."
 }
 ```
+
+### Errors
+
+Same envelope as [`/generatePDF`](#post-generatepdf), with the 1xx block:
+
+| Code | Status | Cause |
+|---|---|---|
+| `101` | `400` | `data_b64` or `cert_b64` missing or empty |
+| `102` | `400` | `data_b64` is not valid Base64 |
+| `103` | `400` | `cert_b64` could not be read as a certificate or public key |
+| `104` | `500` | RSAES-OAEP encryption failed |
+| `199` | `500` | Unexpected error |
+
+This endpoint predates the shared envelope and does not carry the deprecated `error`
+alias — it returns `status`, `code` and `message` only.
 
 ---
 
@@ -174,6 +227,78 @@ curl -X POST http://localhost:5000/generatePDF \
   -d '{"xml_b64":"PEF1dGhUb2tlblJlcXVlc3Q+Li4u","response_type":"binary"}' \
   --output invoice.pdf
 ```
+
+### Errors
+
+Every failure returns the same envelope, the one `/encrypt` uses:
+
+```json
+{
+  "status": "error",
+  "code": 2202,
+  "message": "XML is not a recognised KSeF invoice document: Unknown XML Version: undefined",
+  "error": "XML is not a recognised KSeF invoice document: Unknown XML Version: undefined"
+}
+```
+
+`error` repeats `message` for callers written against the previous contract. It is
+deprecated; read `code`.
+
+**Decide whether to retry from the HTTP status, not the code.** `400` means the request
+must change and will fail again unchanged. `504` is worth retrying. `500` is worth
+retrying with backoff. The `code` exists so a caller can report *why* without parsing
+prose, and codes are never reused.
+
+#### `400` — the caller must fix the request
+
+Request validation (21xx):
+
+| Code | Cause |
+|---|---|
+| `2100` | Body is not a JSON object |
+| `2101` | Body is not valid JSON |
+| `2102` | `xml_b64` missing, empty, or not a string |
+| `2103` | `xml_b64` is not valid Base64 |
+| `2104` | Decoded bytes are not UTF-8 text |
+| `2105` | `response_type` is neither `base64` nor `binary` |
+| `2106` | `additional_data` is not an object |
+| `2107` | `additional_data.language` is neither `pl` nor `en` |
+
+XML payload (22xx):
+
+| Code | Cause |
+|---|---|
+| `2200` | Decoded content holds no XML |
+| `2201` | XML is not well-formed — `message` carries the parser's line and column |
+| `2202` | XML is not a recognised KSeF invoice document (FA(1), FA(2), FA(3), FA_RR) |
+
+#### `500` / `504` — the service could not complete the request
+
+| Code | Status | Cause |
+|---|---|---|
+| `2300` | `504` | Generation exceeded `KSEF_PDF_TIMEOUT_SECONDS` (60 s by default) |
+| `2301` | `500` | Node.js runtime unavailable |
+| `2302` | `500` | Generator returned an unreadable response |
+| `2303` | `500` | Generator returned empty output |
+| `2399` | `500` | Unexpected error |
+
+A generator failure whose message the service does not recognise is reported as `2399`,
+not as a payload error. Attributing an unknown fault to the caller would stop them
+retrying something a retry could clear. The recognised patterns live in
+[`core/pdf_errors.py`](../core/pdf_errors.py).
+
+#### Responses that do not use this envelope
+
+Two cases never reach the application, so they carry neither `code` nor JSON:
+
+| Situation | Response |
+|---|---|
+| Request body over `KSEF_SSL_MAX_BODY` (15 MB by default) | `413` from nginx, **HTML** body |
+| No TLS proxy reachable | connection error, no HTTP response |
+
+Branch on `Content-Type` rather than assuming JSON. On success with
+`response_type: binary` the reply is `application/pdf`; on failure it is
+`application/json`.
 
 ---
 

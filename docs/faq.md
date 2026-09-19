@@ -14,7 +14,7 @@
 8. [SQLite database locked during startup](#sqlite-database-locked-during-startup)
 9. [Node/PDF bridge not found](#nodepdf-bridge-not-found)
 10. [The service starts but `/get_pub_cert` or `/consume` returns an error](#the-service-starts-but-get_pub_cert-or-consume-returns-an-error)
-11. [`/generatePDF` returns "Unsupported invoice version: unknown"](#generatepdf-returns-unsupported-invoice-version-unknown)
+11. [`/generatePDF` rejects an invoice with code 2202](#generatepdf-rejects-an-invoice-with-code-2202)
 12. [RHEL — Docker repository blocked by firewall](#rhel--docker-repository-blocked-by-firewall)
 13. [Podman — `systemctl --user` fails with "No medium found"](#podman--systemctl---user-fails-with-no-medium-found)
 14. [Good practices](#good-practices)
@@ -60,7 +60,7 @@ curl http://localhost:5001/health
 
 Response includes the version field:
 ```json
-{"status":"ok","service":"KSeF Integration API","version":"1.3.2"}
+{"status":"ok","service":"KSeF Integration API","version":"1.4.0"}
 ```
 
 ---
@@ -264,14 +264,30 @@ Python 3.10 is required. If the version is lower, rebuild the Docker image from 
 
 ---
 
-## `/generatePDF` returns "Unsupported invoice version: unknown"
+## `/generatePDF` rejects an invoice with code 2202
 
-This is expected behaviour when sending XML that does not conform to a supported KSeF invoice schema (FA(1), FA(2), FA(3), FA_RR). The Node.js bridge is working correctly — the error comes from the PDF generator, not the API.
+```json
+{"status": "error", "code": 2202,
+ "message": "XML is not a recognised KSeF invoice document: Unknown XML Version: undefined"}
+```
 
-Check that:
-- The XML is a valid KSeF invoice document.
-- `pdf-generator/dist/ksef-fe-invoice-converter.js` exists in the expected path.
-- Node.js 20+ is available (`node --version`).
+Expected behaviour when the XML does not conform to a supported KSeF invoice schema
+(FA(1), FA(2), FA(3), FA_RR). The status is `400`: the generator read the document and
+rejected it, so the same request will fail again and should not be retried.
+
+Check that the XML really is a KSeF invoice and that its schema version is one the
+bundled generator supports — `pdf-generator/dist/` is a pinned build, so an invoice
+issued against a newer schema than the vendored generator will land here.
+
+Neighbouring codes worth telling apart:
+
+- `2201` — the document is not well-formed XML at all; `message` carries the parser's
+  line and column.
+- `2200` — `xml_b64` decoded to nothing but whitespace.
+- `2301` — Node.js is missing or not executable. This one is **not** about your XML;
+  see the Node.js entry above.
+
+The full table is in [API reference](api.md#errors).
 
 ---
 
